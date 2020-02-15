@@ -13,11 +13,36 @@ def _(text):
     return text
 
 
+ranks = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
+files = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭']
+pieces = {
+    'r': '♜',
+    'n': '♞',
+    'b': '♝',
+    'q': '♛',
+    'k': '♚',
+    'p': '♟',
+    'R': '♖',
+    'N': '♘',
+    'B': '♗',
+    'Q': '♕',
+    'K': '♔',
+    'P': '♙',
+}
+
+
 def format(board):
     text = ''
     for i, line in enumerate(str(board).splitlines()):
-        text += '|{}|{}\n'.format(line, 8-i)
-    text += ' a b c d e f g h'
+        text += '|'
+        line = line.split()
+        for j, cell in enumerate(line, start=1):
+            if cell == '.':
+                cell = '⬛' if (i+j) % 2 == 0 else '⬜'
+            else:
+                cell = pieces[cell]
+        text += '|{}\n'.format(ranks[7-i])
+    text += ' {}'.format(files)
     return text
 
 
@@ -156,11 +181,15 @@ class Chess(Plugin):
         ctx.processed = True
         game = chess.pgn.read_game(io.StringIO(r['game']))
         board = game.board()
+        for move in game.mainline_moves():
+            board.push(move)
         turn = game.headers['White'] if board.turn == chess.WHITE else game.headers['Black']
         player = ctx.msg.get_sender_contact().addr
         if player == turn:
             try:
-                game.add_variation(chess.Move.from_uci(ctx.text))
+                move = chess.Move.from_uci(ctx.text)
+                board.push(move)
+                game.add_variation(move)
                 cls.db.commit('UPDATE games SET game=? WHERE players=?',
                               (str(game), r['players']))
                 cls.run_turn(chat)
