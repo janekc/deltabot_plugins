@@ -16,7 +16,7 @@ def _(text):
 def format(board):
     text = ''
     for i, line in enumerate(str(board).splitlines()):
-        text += '|{}|{}\n'.format(8-i)
+        text += '|{}|{}\n'.format(line, 8-i)
     text += ' a b c d e f g h'
     return text
 
