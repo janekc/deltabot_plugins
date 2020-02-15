@@ -153,6 +153,7 @@ class Chess(Plugin):
         if r is None or len(ctx.text) not in (4, 5) or ' ' in ctx.text:
             return
 
+        ctx.processed = True
         game = chess.pgn.read_game(io.StringIO(r['game']))
         board = game.board()
         turn = game.headers['White'] if board.turn == chess.WHITE else game.headers['Black']
