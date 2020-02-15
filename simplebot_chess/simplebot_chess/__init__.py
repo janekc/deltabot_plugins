@@ -189,7 +189,7 @@ class DBManager:
             return self.db.execute(statement, args)
 
     def insert(self, row):
-        self.execute('INSERT INTO games VALUES (?,?,?)', row)
+        self.commit('INSERT INTO games VALUES (?,?,?)', row)
 
     def close(self):
         self.db.close()
