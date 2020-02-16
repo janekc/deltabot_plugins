@@ -32,9 +32,9 @@ pieces = {
 
 
 def format(board):
-    text = ''
+    text = ' {}'.format('|'.join(files))
     for i, line in enumerate(str(board).splitlines()):
-        text += '|'
+        text += '{}|'.format(ranks[7-i])
         line = line.split()
         for j, cell in enumerate(line, start=1):
             if cell == '.':
