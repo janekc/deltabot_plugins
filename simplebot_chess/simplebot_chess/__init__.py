@@ -32,7 +32,7 @@ pieces = {
 
 
 def format(board):
-    text = ' {}'.format('|'.join(files))
+    text = ' {}\n'.format('|'.join(files))
     for i, line in enumerate(str(board).splitlines()):
         text += '{}|'.format(ranks[7-i])
         line = line.split()
