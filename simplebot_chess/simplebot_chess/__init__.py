@@ -41,8 +41,9 @@ def format(board):
                 text += '⬛' if (i+j) % 2 == 0 else '⬜'
             else:
                 text += pieces[cell]
-        text += '|{}\n'.format(ranks[7-i])
-    text += ' {}'.format(files)
+            text += '|'
+        text += '{}\n'.format(ranks[7-i])
+    text += ' {}'.format('|'.join(files))
     return text
 
 
