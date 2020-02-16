@@ -1,82 +1,82 @@
 .PHONY: all
-all: echo friends groupmaster help tictactoe translator webgrabber wikiquote xkcd admin shortcuts rss facebook mastodon avatar meme cuba_weather cartv xmpp chess
+all: echo friends groupmaster help tictactoe translator webgrabber wikiquote xkcd admin shortcuts rss facebook mastodon avatar meme cartv cuba_weather xmpp chess
 
 .PHONY: echo
 echo:
-	echo y | pip uninstall simplebot_echo; pip install simplebot_echo
-
-.PHONY: cartv
-cartv:
-	echo y | pip uninstall simplebot_cartv; pip install simplebot_cartv
-
-.PHONY: cuba_weather
-cuba_weather:
-	echo y | pip uninstall simplebot_cubaweather; pip install simplebot_cubaweather
+	echo y | pip uninstall simplebot_echo; pip install plugins/simplebot_echo
 
 .PHONY: friends
 friends:
-	echo y | pip uninstall simplebot_friends; pip install simplebot_friends
+	echo y | pip uninstall simplebot_friends; pip install plugins/simplebot_friends
 
 .PHONY: groupmaster
 groupmaster:
-	echo y | pip uninstall simplebot_groupmaster; pip install simplebot_groupmaster
+	echo y | pip uninstall simplebot_groupmaster; pip install plugins/simplebot_groupmaster
 
 .PHONY: help
 help:
-	echo y | pip uninstall simplebot_help; pip install simplebot_help
+	echo y | pip uninstall simplebot_help; pip install plugins/simplebot_help
 
 .PHONY: tictactoe
 tictactoe:
-	echo y | pip uninstall simplebot_tictactoe; pip install simplebot_tictactoe
+	echo y | pip uninstall simplebot_tictactoe; pip install plugins/simplebot_tictactoe
 
 .PHONY: translator
 translator:
-	echo y | pip uninstall simplebot_translator; pip install simplebot_translator
+	echo y | pip uninstall simplebot_translator; pip install plugins/simplebot_translator
 
 .PHONY: webgrabber
 webgrabber:
-	echo y | pip uninstall simplebot_webgrabber; pip install simplebot_webgrabber
+	echo y | pip uninstall simplebot_webgrabber; pip install plugins/simplebot_webgrabber
 
 .PHONY: wikiquote
 wikiquote:
-	echo y | pip uninstall simplebot_wikiquote; pip install simplebot_wikiquote
+	echo y | pip uninstall simplebot_wikiquote; pip install plugins/simplebot_wikiquote
 
 .PHONY: xkcd
 xkcd:
-	echo y | pip uninstall simplebot_xkcd; pip install simplebot_xkcd
+	echo y | pip uninstall simplebot_xkcd; pip install plugins/simplebot_xkcd
 
 .PHONY: admin
 admin:
-	echo y | pip uninstall simplebot_admin; pip install simplebot_admin
+	echo y | pip uninstall simplebot_admin; pip install plugins/simplebot_admin
 
 .PHONY: shortcuts
 shortcuts:
-	echo y | pip uninstall simplebot_shortcuts; pip install simplebot_shortcuts
+	echo y | pip uninstall simplebot_shortcuts; pip install plugins/simplebot_shortcuts
 
 .PHONY: rss
 rss:
-	echo y | pip uninstall simplebot_rss; pip install simplebot_rss
+	echo y | pip uninstall simplebot_rss; pip install plugins/simplebot_rss
 
 .PHONY: facebook
 facebook:
-	echo y | pip uninstall simplebot_facebook; pip install simplebot_facebook
+	echo y | pip uninstall simplebot_facebook; pip install plugins/simplebot_facebook
 
 .PHONY: mastodon
 mastodon:
-	echo y | pip uninstall simplebot_mastodon; pip install simplebot_mastodon
+	echo y | pip uninstall simplebot_mastodon; pip install plugins/simplebot_mastodon
 
 .PHONY: avatar
 avatar:
-	echo y | pip uninstall simplebot_avatar; pip install simplebot_avatar
+	echo y | pip uninstall simplebot_avatar; pip install plugins/simplebot_avatar
 
 .PHONY: meme
 meme:
-	echo y | pip uninstall simplebot_meme; pip install simplebot_meme
+	echo y | pip uninstall simplebot_meme; pip install plugins/simplebot_meme
+
+.PHONY: cartv
+cartv:
+	echo y | pip uninstall simplebot_cartv; pip install plugins/simplebot_cartv
+
+.PHONY: cuba_weather
+cuba_weather:
+	echo y | pip uninstall simplebot_cubaweather; pip install plugins/simplebot_cubaweather
 
 .PHONY: xmpp
 xmpp:
-	echo y | pip uninstall simplebot_xmpp; pip install simplebot_xmpp
+	echo y | pip uninstall simplebot_xmpp; pip install plugins/simplebot_xmpp
 
 .PHONY: chess
 chess:
-	echo y | pip uninstall simplebot_chess; pip install simplebot_chess
+	echo y | pip uninstall simplebot_chess; pip install plugins/simplebot_chess
