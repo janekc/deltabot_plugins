@@ -220,7 +220,7 @@ class Chess(Plugin):
                               (str(game), r['players']))
                 cls.run_turn(chat)
             except (ValueError, AssertionError):
-                chat.send_text(_('Invalid move!'))
+                chat.send_text(_('❌ Invalid move!'))
 
 
 class DBManager:
