@@ -200,9 +200,8 @@ class Chess(Plugin):
         player = ctx.msg.get_sender_contact().addr
         if player == turn:
             try:
-                move = chess.Move.from_uci(ctx.text)
-                board.push(move)
-                game.end().add_variation(move)
+                board.push_uci(ctx.text)
+                game.end().add_variation(chess.Move.from_uci(ctx.text))
                 cls.db.commit('UPDATE games SET game=? WHERE players=?',
                               (str(game), r['players']))
                 cls.run_turn(chat)
