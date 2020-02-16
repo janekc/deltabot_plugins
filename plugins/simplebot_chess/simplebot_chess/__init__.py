@@ -198,7 +198,10 @@ class Chess(Plugin):
         board = game.board()
         for move in game.mainline_moves():
             board.push(move)
-        turn = game.headers['White'] if board.turn == chess.WHITE else game.headers['Black']
+        if board.turn == chess.WHITE:
+            turn = game.headers['White']
+        else:
+            turn = game.headers['Black']
         player = ctx.msg.get_sender_contact().addr
         if player == turn:
             try:
@@ -209,9 +212,6 @@ class Chess(Plugin):
                 cls.run_turn(chat)
             except (ValueError, AssertionError):
                 chat.send_text(_('Invalid move!'))
-        else:
-            chat.send_text(
-                _("{} it's NOT your turn, please wait for the other player").format(player))
 
 
 class DBManager:
