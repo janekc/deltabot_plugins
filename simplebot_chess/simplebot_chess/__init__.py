@@ -65,6 +65,8 @@ class Chess(Plugin):
         lang.install()
 
         cls.description = _('Chess game to play with friends!')
+        cls.long_description = _(
+            'To move use Long Algebraic Notation (without hyphens) <https://en.wikipedia.org/wiki/Universal_Chess_Interface>\nFor example, to move pawn from e2 to e4, send a message: e2e4, to move knight from g1 to f3, send a message: g1f3')
         cls.filters = [PluginFilter(cls.process_messages)]
         cls.bot.add_filters(cls.filters)
         cls.commands = [
