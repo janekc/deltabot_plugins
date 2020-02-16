@@ -175,7 +175,16 @@ class Chess(Plugin):
         chat = cls.bot.get_chat(ctx.msg)
         r = cls.db.execute(
             'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        if r is None or len(ctx.text) not in (4, 5) or ' ' in ctx.text:
+        if r is None:
+            return
+        p1, p2 = map(cls.bot.get_contact, r['players'].split(','))
+        me = cls.bot.get_contact()
+        contacts = chat.get_contacts()
+        if me not in contacts or p1 not in contacts or p2 not in contacts:
+            cls.db.commit('DELETE FROM games WHERE players=?', (r['players'],))
+            chat.remove_contact(me)
+            return
+        if len(ctx.text) not in (4, 5) or ' ' in ctx.text:
             return
 
         ctx.processed = True
