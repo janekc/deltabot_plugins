@@ -210,7 +210,7 @@ class Chess(Plugin):
                 chat.send_text(_('Invalid move!'))
         else:
             chat.send_text(
-                _("It's NOT your turn, please wait for the other player"))
+                _("{} it's NOT your turn, please wait for the other player").format(player))
 
 
 class DBManager:
