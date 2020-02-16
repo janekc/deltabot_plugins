@@ -86,7 +86,10 @@ class Chess(Plugin):
     def run_turn(cls, chat):
         r = cls.db.execute(
             'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        b = chess.pgn.read_game(io.StringIO(r['game'])).board()
+        game = chess.pgn.read_game(io.StringIO(r['game']))
+        b = game.board()
+        for move in game.mainline_moves():
+            b.push(move)
         result = b.result()
         if result == '*':
             turn = '♔ White' if b.turn == chess.WHITE else '♚ Black'
