@@ -66,7 +66,7 @@ class Chess(Plugin):
 
         cls.description = _('Chess game to play with friends!')
         cls.long_description = _(
-            'To move use Long Algebraic Notation (without hyphens) <https://en.wikipedia.org/wiki/Universal_Chess_Interface>\nFor example, to move pawn from e2 to e4, send a message: e2e4, to move knight from g1 to f3, send a message: g1f3')
+            'To move use Standard Algebraic Notation <https://en.wikipedia.org/wiki/Algebraic_notation_(chess)> or Long Algebraic Notation (without hyphens) <https://en.wikipedia.org/wiki/Universal_Chess_Interface>\nFor example, to move pawn from e2 to e4, send a message: e4, or a message: e2e4, to move knight from g1 to f3, send a message: Nf3, or a message: g1f3')
         cls.filters = [PluginFilter(cls.process_messages)]
         cls.bot.add_filters(cls.filters)
         cls.commands = [
@@ -205,7 +205,10 @@ class Chess(Plugin):
         player = ctx.msg.get_sender_contact().addr
         if player == turn:
             try:
-                board.push_uci(ctx.text)
+                try:
+                    board.push_san(ctx.text)
+                except ValueError:
+                    board.push_uci(ctx.text)
                 game.end().add_variation(chess.Move.from_uci(ctx.text))
                 cls.db.commit('UPDATE games SET game=? WHERE players=?',
                               (str(game), r['players']))
