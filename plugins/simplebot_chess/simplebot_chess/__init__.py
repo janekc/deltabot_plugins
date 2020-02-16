@@ -190,7 +190,7 @@ class Chess(Plugin):
             cls.db.commit('DELETE FROM games WHERE players=?', (r['players'],))
             chat.remove_contact(me)
             return
-        if len(ctx.text) not in (4, 5) or ' ' in ctx.text:
+        if ' ' in ctx.text:
             return
 
         ctx.processed = True
