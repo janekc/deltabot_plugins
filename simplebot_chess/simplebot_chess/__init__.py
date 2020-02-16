@@ -14,7 +14,7 @@ def _(text):
 
 
 ranks = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
-files = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭']
+files = '🇦🇧🇨🇩🇪🇫🇬🇭'
 pieces = {
     'r': '♜',
     'n': '♞',
@@ -38,9 +38,9 @@ def format(board):
         line = line.split()
         for j, cell in enumerate(line, start=1):
             if cell == '.':
-                cell = '⬛' if (i+j) % 2 == 0 else '⬜'
+                text += '⬛' if (i+j) % 2 == 0 else '⬜'
             else:
-                cell = pieces[cell]
+                text += pieces[cell]
         text += '|{}\n'.format(ranks[7-i])
     text += ' {}'.format(files)
     return text
