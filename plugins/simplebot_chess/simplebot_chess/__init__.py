@@ -94,7 +94,10 @@ class Chess(Plugin):
             b.push(move)
         result = b.result()
         if result == '*':
-            turn = '♔ White' if b.turn == chess.WHITE else '♚ Black'
+            if b.turn == chess.WHITE:
+                turn = '♔ {}'.format(game.headers['White'])
+            else:
+                turn = '♚ {}'.format(game.headers['Black'])
             chat.send_text(
                 _('{} is your turn...\n\n{}').format(turn, format(b)))
         else:
@@ -102,8 +105,11 @@ class Chess(Plugin):
                 chat.send_text(
                     _('Game over.\nIt is a draw!\n\n{}').format(format(b)))
             else:
-                winner = '♔ White' if result == '1-0' else '♚ Black'
-                chat.send_text(_('Game over.\n{} Wins!!!\n\n{}').format(
+                if result == '1-0':
+                    winner = '♔ {}'.format(game.headers['White'])
+                else:
+                    winner = '♚ {}'.format(game.headers['Black'])
+                chat.send_text(_('🏆 Game over.\n{} Wins!!!\n\n{}').format(
                     winner, format(b)))
             cls.db.commit('UPDATE games SET game=? WHERE players=?',
                           (None, r['players']))
@@ -151,7 +157,7 @@ class Chess(Plugin):
         else:
             cls.db.commit('UPDATE games SET game=? WHERE players=?',
                           (None, game['players']))
-            chat.send_text(_('Game Over.\n{} Surrenders.').format(loser))
+            chat.send_text(_('🏳️ Game Over.\n{} Surrenders.').format(loser))
 
     @classmethod
     def new_cmd(cls, ctx):
