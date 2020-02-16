@@ -32,7 +32,7 @@ pieces = {
 
 
 def format(board):
-    text = ' {}\n'.format('|'.join(files))
+    text = '⬜|{}|⬜\n'.format('|'.join(files))
     for i, line in enumerate(str(board).splitlines()):
         text += '{}|'.format(ranks[7-i])
         line = line.split()
@@ -43,7 +43,7 @@ def format(board):
                 text += pieces[cell]
             text += '|'
         text += '{}\n'.format(ranks[7-i])
-    text += ' {}'.format('|'.join(files))
+    text += '⬜|{}|⬜\n'.format('|'.join(files))
     return text
 
 
