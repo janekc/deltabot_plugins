@@ -212,10 +212,10 @@ class Chess(Plugin):
         if player == turn:
             try:
                 try:
-                    board.push_san(ctx.text)
+                    move = board.push_san(ctx.text)
                 except ValueError:
-                    board.push_uci(ctx.text)
-                game.end().add_variation(chess.Move.from_uci(ctx.text))
+                    move = board.push_uci(ctx.text)
+                game.end().add_variation(move)
                 cls.db.commit('UPDATE games SET game=? WHERE players=?',
                               (str(game), r['players']))
                 cls.run_turn(chat)
