@@ -17,8 +17,6 @@
   .c {
       width:24pt;
       height:24pt;
-  }
-  .c > span {
       font-size:150%;
   }
   .lr {
@@ -48,10 +46,10 @@
       border-width: 0pt 0pt 0pt 1pt;
   }
   .d {
-      bgcolor: silver;
+      background-color: #d18b47;
   }
   .l {
-      bgcolor: white;
+      background-color: #ffce9e;
   }
 </style>
 {% endblock %}
@@ -71,7 +69,7 @@
        <tr>
 	 <td class="lr">{{ ranks[7-i] }}</td>
 	 {% for j, cell in enumerate(line.split(), start=1) %}
-	    <td class="c {% if (i+j) % 2 == 0 %} d {% else %} l {% endif %}"><span>{{ pieces[cell] }}</span></td>
+	    <td class="c {% if (i+j) % 2 == 0 %}d{% else %}l{% endif %}">{{ pieces[cell] }}</td>
 	 {% endfor %}
 	 <td class="rr">{{ ranks[7-i] }}</td>
        </tr>
