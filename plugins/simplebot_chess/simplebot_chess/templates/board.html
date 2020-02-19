@@ -11,9 +11,6 @@
   table {
       text-align:center;
       border-spacing:0pt;
-      border-collapse:collapse;
-      border-color: black;
-      border-style: solid;
       border-width: 0pt 0pt 0pt 0pt;
   }
   .c {
@@ -21,31 +18,22 @@
       height:28pt;
       font-size:150%;
   }
-  .lr {
-      width:12pt;
+  .r {
       border-collapse:collapse;
       border-color: black;
       border-style: solid;
+  }
+  .e {
       border-width: 0pt 1pt 0pt 0pt;
   }
-  .tf {
-      border-collapse:collapse;
-      border-color: black;
-      border-style: solid;
+  .n {
       border-width: 0pt 0pt 1pt 0pt;      
   }
-  .bf {
-      border-collapse:collapse;
-      border-color: black;
-      border-style: solid;
-      border-width: 1pt 0pt 0pt 0pt;      
-  }
-  .rr {
-      width:12pt;
-      border-collapse:collapse;
-      border-color: black;
-      border-style: solid;
+  .o {
       border-width: 0pt 0pt 0pt 1pt;
+  }
+  .s {
+      border-width: 1pt 0pt 0pt 0pt;      
   }
   .d {
       background-color: #d18b47;
@@ -58,28 +46,28 @@
 
 {% block content %}
 <div class="board">
-<table>
+<table class="r">
   <tbody>
     <tr>
       <td></td>
       {% for f in files %}
-         <td class="tf">{{ f }}</td>
+         <td class="r n">{{ f }}</td>
       {% endfor %}
       <td></td>
     </tr>
     {% for i, line in enumerate(board.splitlines()) %}
        <tr>
-	 <td class="lr">{{ ranks[7-i] }}</td>
+	 <td class="r e">{{ ranks[7-i] }}</td>
 	 {% for j, cell in enumerate(line.split(), start=1) %}
 	    <td class="c {% if (i+j) % 2 == 0 %}d{% else %}l{% endif %}">{{ pieces[cell] }}</td>
 	 {% endfor %}
-	 <td class="rr">{{ ranks[7-i] }}</td>
+	 <td class="r o">{{ ranks[7-i] }}</td>
        </tr>
     {% endfor %}
     <tr>
       <td></td>
       {% for f in files %}
-         <td class="bf">{{ f }}</td>
+         <td class="r s">{{ f }}</td>
       {% endfor %}
       <td></td>
     </tr>
