@@ -101,20 +101,25 @@ class Chess(Plugin):
         for move in game.mainline_moves():
             b.push(move)
         result = b.result()
+        kwargs = {
+            'plugin': cls,
+            'board': str(b),
+            'files': 'abcdefgh',
+            'ranks': '12345678',
+            'pieces': pieces,
+            'enumerate': enumerate}
         if result == '*':
             if b.turn == chess.WHITE:
                 turn = '♔ {}'.format(game.headers['White'])
             else:
                 turn = '♚ {}'.format(game.headers['Black'])
             text = _('{} is your turn...\n\n{}').format(turn, format(b))
-            html = cls.template.render(
-                plugin=cls, board=str(b), files='abcdefgh', ranks='12345678', pieces=pieces)
+            html = cls.template.render(**kwargs)
             cls.bot.send_html(chat, html, cls.name, text, None)
         else:
             if result == '1/2-1/2':
                 text = _('Game over.\nIt is a draw!\n\n{}').format(format(b))
-                html = cls.template.render(
-                    plugin=cls, board=str(b), files='abcdefgh', ranks='12345678', pieces=pieces)
+                html = cls.template.render(**kwargs)
                 cls.bot.send_html(chat, html, cls.name, text, None)
             else:
                 if result == '1-0':
@@ -123,8 +128,7 @@ class Chess(Plugin):
                     winner = '♚ {}'.format(game.headers['Black'])
                 text = _('🏆 Game over.\n{} Wins!!!\n\n{}').format(
                     winner, format(b))
-                html = cls.template.render(
-                    plugin=cls, board=str(b), files='abcdefgh', ranks='12345678', pieces=pieces)
+                html = cls.template.render(**kwargs)
                 cls.bot.send_html(chat, html, cls.name, text, None)
             cls.db.commit('UPDATE games SET game=? WHERE players=?',
                           (None, r['players']))
