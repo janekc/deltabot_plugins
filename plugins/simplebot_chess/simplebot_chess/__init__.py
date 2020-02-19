@@ -5,6 +5,7 @@ import os
 import sqlite3
 
 from simplebot import Plugin, PluginCommand, PluginFilter
+from jinja2 import Environment, PackageLoader, select_autoescape
 import chess
 import chess.pgn
 
@@ -28,6 +29,7 @@ pieces = {
     'Q': '♕',
     'K': '♔',
     'P': '♙',
+    '.': ' ',
 }
 
 
@@ -55,6 +57,12 @@ class Chess(Plugin):
     @classmethod
     def activate(cls, bot):
         super().activate(bot)
+
+        env = Environment(
+            loader=PackageLoader(__name__, 'templates'),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
+        cls.template = env.get_template('board.html')
 
         cls.db = DBManager(os.path.join(
             cls.bot.get_dir(__name__), 'chess.db'))
@@ -98,19 +106,26 @@ class Chess(Plugin):
                 turn = '♔ {}'.format(game.headers['White'])
             else:
                 turn = '♚ {}'.format(game.headers['Black'])
-            chat.send_text(
-                _('{} is your turn...\n\n{}').format(turn, format(b)))
+            text = _('{} is your turn...\n\n{}').format(turn, format(b))
+            html = cls.template.render(
+                plugin=cls, board=b, files='abcdefgh', ranks='12345678', pieces=pieces)
+            cls.bot.send_html(chat, html, cls.name, text, None)
         else:
             if result == '1/2-1/2':
-                chat.send_text(
-                    _('Game over.\nIt is a draw!\n\n{}').format(format(b)))
+                text = _('Game over.\nIt is a draw!\n\n{}').format(format(b))
+                html = cls.template.render(
+                    plugin=cls, board=b, files='abcdefgh', ranks='12345678', pieces=pieces)
+                cls.bot.send_html(chat, html, cls.name, text, None)
             else:
                 if result == '1-0':
                     winner = '♔ {}'.format(game.headers['White'])
                 else:
                     winner = '♚ {}'.format(game.headers['Black'])
-                chat.send_text(_('🏆 Game over.\n{} Wins!!!\n\n{}').format(
-                    winner, format(b)))
+                text = _('🏆 Game over.\n{} Wins!!!\n\n{}').format(
+                    winner, format(b))
+                html = cls.template.render(
+                    plugin=cls, board=b, files='abcdefgh', ranks='12345678', pieces=pieces)
+                cls.bot.send_html(chat, html, cls.name, text, None)
             cls.db.commit('UPDATE games SET game=? WHERE players=?',
                           (None, r['players']))
 

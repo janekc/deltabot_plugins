@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block css %}
+<style>
+  .board {
+      display: table;
+      margin: 0px auto;
+  }
+  table {
+      text-align:center;
+      border-spacing:0pt;
+      border-collapse:collapse;
+      border-color: black;
+      border-style: solid;
+      border-width: 0pt 0pt 0pt 0pt;
+  }
+  .cell {
+      width:24pt;
+      height:24pt;
+  }
+  .cell > span {
+      font-size:150%;
+  }
+  .lrank {
+      width:12pt;
+      border-collapse:collapse;
+      border-color: black;
+      border-style: solid;
+      border-width: 0pt 1pt 0pt 0pt;
+  }
+  .tfile {
+      border-collapse:collapse;
+      border-color: black;
+      border-style: solid;
+      border-width: 0pt 0pt 1pt 0pt;      
+  }
+  .bfile {
+      border-collapse:collapse;
+      border-color: black;
+      border-style: solid;
+      border-width: 1pt 0pt 0pt 0pt;      
+  }
+  .rrank {
+      width:12pt;
+      border-collapse:collapse;
+      border-color: black;
+      border-style: solid;
+      border-width: 0pt 0pt 0pt 1pt;
+  }
+  .dark {
+      bgcolor: silver;
+  }
+  .light {
+      bgcolor: white;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="board">
+<table>
+  <tbody>
+    <tr>
+      <td></td>
+      {% for f in files %}
+         <td class="tfile">{{ f }}</td>
+      {% endfor %}
+      <td></td>
+    </tr>
+    {% for i, line in enumerate(str(board).splitlines()) %}
+       <tr>
+	 <td class="lrank">{{ ranks[7-i] }}</td>
+	 {% for j, cell in enumerate(line.split(), start=1) %}
+	    <td class="cell {% if (i+j) % 2 == 0 %} dark {% else %} light {% endif %}"><span>{{ pieces[cell] }}</span></td>
+	 {% endfor %}
+	 <td class="rrank">{{ ranks[7-i] }}</td>
+       </tr>
+    {% endfor %}
+    <tr>
+      <td></td>
+      {% for f in files %}
+         <td class="bfile">{{ f }}</td>
+      {% endfor %}
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+{% endblock %}
