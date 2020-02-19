@@ -14,43 +14,43 @@
       border-style: solid;
       border-width: 0pt 0pt 0pt 0pt;
   }
-  .cell {
+  .c {
       width:24pt;
       height:24pt;
   }
-  .cell > span {
+  .c > span {
       font-size:150%;
   }
-  .lrank {
+  .lr {
       width:12pt;
       border-collapse:collapse;
       border-color: black;
       border-style: solid;
       border-width: 0pt 1pt 0pt 0pt;
   }
-  .tfile {
+  .tf {
       border-collapse:collapse;
       border-color: black;
       border-style: solid;
       border-width: 0pt 0pt 1pt 0pt;      
   }
-  .bfile {
+  .bf {
       border-collapse:collapse;
       border-color: black;
       border-style: solid;
       border-width: 1pt 0pt 0pt 0pt;      
   }
-  .rrank {
+  .rr {
       width:12pt;
       border-collapse:collapse;
       border-color: black;
       border-style: solid;
       border-width: 0pt 0pt 0pt 1pt;
   }
-  .dark {
+  .d {
       bgcolor: silver;
   }
-  .light {
+  .l {
       bgcolor: white;
   }
 </style>
@@ -63,23 +63,23 @@
     <tr>
       <td></td>
       {% for f in files %}
-         <td class="tfile">{{ f }}</td>
+         <td class="tf">{{ f }}</td>
       {% endfor %}
       <td></td>
     </tr>
-    {% for i, line in enumerate(str(board).splitlines()) %}
+    {% for i, line in enumerate(board.splitlines()) %}
        <tr>
-	 <td class="lrank">{{ ranks[7-i] }}</td>
+	 <td class="lr">{{ ranks[7-i] }}</td>
 	 {% for j, cell in enumerate(line.split(), start=1) %}
-	    <td class="cell {% if (i+j) % 2 == 0 %} dark {% else %} light {% endif %}"><span>{{ pieces[cell] }}</span></td>
+	    <td class="c {% if (i+j) % 2 == 0 %} d {% else %} l {% endif %}"><span>{{ pieces[cell] }}</span></td>
 	 {% endfor %}
-	 <td class="rrank">{{ ranks[7-i] }}</td>
+	 <td class="rr">{{ ranks[7-i] }}</td>
        </tr>
     {% endfor %}
     <tr>
       <td></td>
       {% for f in files %}
-         <td class="bfile">{{ f }}</td>
+         <td class="bf">{{ f }}</td>
       {% endfor %}
       <td></td>
     </tr>
