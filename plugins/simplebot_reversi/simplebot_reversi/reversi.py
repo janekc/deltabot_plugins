@@ -57,7 +57,7 @@ class Board:
     def move(self, coord):
         y, x = sorted(coord.lower())
         x = 'abcdefgh'.find(x)
-        assert x >= 0, 'Invalid move'
+        assert x >= 0, 'Invalid move ({}, {})'.format(x, y)
         y = int(x) - 1
 
         flipped = self.get_flipped(self.turn, x, y)
@@ -66,7 +66,7 @@ class Board:
                 self._board[x][y] = self.turn
             self.turn = WHITE if self.turn == BLACK else BLACK
         else:
-            raise ValueError('Invalid Move')
+            raise ValueError('Invalid move ({}, {})'.format(x, y))
 
     def is_on_board(self, x, y):
         return 0 <= x <= 7 and 0 <= y <= 7
