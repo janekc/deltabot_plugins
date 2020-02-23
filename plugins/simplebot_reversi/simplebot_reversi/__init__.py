@@ -62,14 +62,14 @@ class Reversi(Plugin):
                 disk = reversi.DISKS[reversi.WHITE]
                 p2 = r['players'].replace(r['black'], '').strip(',')
                 turn = '{} {}'.format(disk, p2)
-            text = _('{}\n{} is your turn...\n\n{}').format(
-                b.get_score(), turn, b)
+            text = _('{} is your turn...\n\n{}\n\n{}\n\n{}').format(
+                turn, b, b.get_score())
             chat.send_text(text)
         else:
             black, white = result[reversi.BLACK], result[reversi.WHITE]
             if black == white:
-                text = _('{}\n🤝 Game over.\nIt is a draw!\n\n{}').format(
-                    b.get_score(), b)
+                text = _('🤝 Game over.\nIt is a draw!\n\n{}\n\n{}').format(
+                    b, b.get_score())
                 chat.send_text(text)
             else:
                 if black > white:
@@ -79,8 +79,8 @@ class Reversi(Plugin):
                     disk = reversi.DISKS[reversi.WHITE]
                     p2 = r['players'].replace(r['black'], '').strip(',')
                     winner = '{} {}'.format(disk, p2)
-                text = _('{}\n🏆 Game over.\n{} Wins!!!\n\n{}').format(
-                    b.get_score(), winner, b)
+                text = _('🏆 Game over.\n{} Wins!!!\n\n{}\n\n{}').format(
+                    winner, b, b.get_score())
                 chat.send_text(text)
             cls.db.commit('UPDATE games SET board=? WHERE players=?',
                           (None, r['players']))
