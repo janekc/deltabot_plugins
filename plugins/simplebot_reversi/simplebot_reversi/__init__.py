@@ -98,8 +98,9 @@ class Reversi(Plugin):
             r = cls.db.execute(
                 'SELECT * FROM games WHERE players=?', (players,)).fetchone()
             if r is None:  # first time playing with p2
+                disk = reversi.DISKS[reversi.BLACK]
                 chat = cls.bot.create_group(
-                    '{} {} 🆚 {} [{}]'.format(reversi.BLACK, p1, p2, cls.name), [p1, p2])
+                    '{} {} 🆚 {} [{}]'.format(disk, p1, p2, cls.name), [p1, p2])
                 b = reversi.Board()
                 cls.db.insert((players, chat.id, b.export(), p1))
                 b = reversi.DISKS[reversi.BLACK]
