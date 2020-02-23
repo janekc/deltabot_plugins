@@ -62,6 +62,7 @@ class Board:
 
         flipped = self.get_flipped(self.turn, x, y)
         if flipped:
+            self._board[x][y] = self.turn
             for x, y in flipped:
                 self._board[x][y] = self.turn
             self.turn = WHITE if self.turn == BLACK else BLACK
