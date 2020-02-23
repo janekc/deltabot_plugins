@@ -58,7 +58,7 @@ class Board:
         y, x = sorted(coord.lower())
         x = 'abcdefgh'.find(x)
         assert x >= 0, 'Invalid move ({}, {})'.format(x, y)
-        y = int(x) - 1
+        y = int(y) - 1
 
         flipped = self.get_flipped(self.turn, x, y)
         if flipped:
