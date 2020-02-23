@@ -62,7 +62,7 @@ class Reversi(Plugin):
                 disk = reversi.DISKS[reversi.WHITE]
                 p2 = r['players'].replace(r['black'], '').strip(',')
                 turn = '{} {}'.format(disk, p2)
-            text = _('{} is your turn...\n\n{}\n\n{}\n\n{}').format(
+            text = _('{} is your turn...\n\n{}\n\n{}').format(
                 turn, b, b.get_score())
             chat.send_text(text)
         else:
