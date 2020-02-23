@@ -40,7 +40,7 @@ class Board:
                     b += 1
                 elif d == WHITE:
                     w += 1
-        return '{}{} – {}{}'.format(DISKS[BLACK], b, w, DISKS[WHITE])
+        return '{} {} – {} {}'.format(DISKS[BLACK], b, w, DISKS[WHITE])
 
     def result(self):
         b, w = 0, 0
