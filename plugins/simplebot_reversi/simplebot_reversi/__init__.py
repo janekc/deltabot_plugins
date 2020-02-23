@@ -160,7 +160,7 @@ class Reversi(Plugin):
         chat = cls.bot.get_chat(ctx.msg)
         r = cls.db.execute(
             'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        if None in (r, r['board']):
+        if r is None or r['board'] is None:
             return
         p1, p2 = map(cls.bot.get_contact, r['players'].split(','))
         me = cls.bot.get_contact()
