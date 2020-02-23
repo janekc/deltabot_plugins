@@ -22,7 +22,7 @@ class Board:
 
     def export(self):
         b = '\n'.join(''.join(l) for l in self._board)
-        return '\n'.join(self.turn, b)
+        return '\n'.join((self.turn, b))
 
     def __str__(self):
         text = '|'.join(COLS) + '\n'
