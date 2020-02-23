@@ -89,7 +89,7 @@ class Board:
             while self.is_on_board(newx, newy) and self._board[newx][newy] == other_tile:
                 newx += xdir
                 newy += ydir
-            if self.is_on_board(newx, newy) and self._board[newx, newy] == disk and (newx-xdir, newy-ydir) != (x, y):
+            if self.is_on_board(newx, newy) and self._board[newx][newy] == disk and (newx-xdir, newy-ydir) != (x, y):
                 return True
         return False
 
@@ -104,7 +104,7 @@ class Board:
             while self.is_on_board(newx, newy) and self._board[newx][newy] == other_tile:
                 newx += xdir
                 newy += ydir
-            if not self.is_on_board(newx, newy) or self._board[newx, newy] != disk:
+            if not self.is_on_board(newx, newy) or self._board[newx][newy] != disk:
                 continue
             while True:
                 newx -= xdir
