@@ -182,7 +182,8 @@ class Reversi(Plugin):
                 cls.db.commit('UPDATE games SET board=? WHERE players=?',
                               (b.export(), r['players']))
                 cls.run_turn(chat)
-            except (ValueError, AssertionError):
+            except (ValueError, AssertionError) as ex:
+                cls.bot.logger.exception(ex)
                 chat.send_text(_('❌ Invalid move!'))
 
 
