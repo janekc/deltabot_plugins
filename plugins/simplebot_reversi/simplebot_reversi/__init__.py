@@ -179,7 +179,6 @@ class Reversi(Plugin):
         if b.turn == player:
             try:
                 b.move(ctx.text)
-                print(b.export())
                 cls.db.commit('UPDATE games SET board=? WHERE players=?',
                               (b.export(), r['players']))
                 cls.run_turn(chat)

@@ -65,9 +65,8 @@ class Board:
             for x, y in flipped:
                 self._board[x][y] = self.turn
             self.turn = WHITE if self.turn == BLACK else BLACK
-            return True
         else:
-            return False
+            raise ValueError('Invalid Move')
 
     def is_on_board(self, x, y):
         return 0 <= x <= 7 and 0 <= y <= 7
