@@ -3,7 +3,7 @@ BLACK = 'x'
 WHITE = 'o'
 COLS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
 ROWS = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭']
-DISKS = {BLACK: '🔴', WHITE: '🔵', ' ': '⬜'}
+DISKS = {BLACK: '🔴', WHITE: '🔵', ' ': '⬜', 'V': '⬛'}
 
 
 class Board:
@@ -25,8 +25,11 @@ class Board:
         return '\n'.join((self.turn, b))
 
     def __str__(self):
+        board = [[e for e in row] for row in self._board]
+        for x, y in self.get_valid_moves(self.turn):
+            board[x][y] = 'V'
         text = '|'.join(COLS) + '\n'
-        for i, row in enumerate(self._board):
+        for i, row in enumerate(board):
             for d in row:
                 text += DISKS[d] + '|'
             text += ROWS[i] + '\n'
@@ -72,13 +75,13 @@ class Board:
     def is_on_board(self, x, y):
         return 0 <= x <= 7 and 0 <= y <= 7
 
-    # def get_valid_moves(self, disk):
-    #     moves = []
-    #     for x in range(8):
-    #         for y in range(8):
-    #             if self.is_valid_move(disk, x, y):
-    #                 moves.append((x, y))
-    #     return moves
+    def get_valid_moves(self, disk):
+        moves = []
+        for x in range(8):
+            for y in range(8):
+                if self.is_valid_move(disk, x, y):
+                    moves.append((x, y))
+        return moves
 
     def is_valid_move(self, disk, x, y):
         if not self.is_on_board(x, y) or self._board[x][y] != ' ':
