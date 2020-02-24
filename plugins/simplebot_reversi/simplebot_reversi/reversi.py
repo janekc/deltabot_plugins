@@ -2,7 +2,7 @@
 BLACK = 'x'
 WHITE = 'o'
 COLS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
-ROWS = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭']
+ROWS = 'ABCDEFGH'
 DISKS = {BLACK: '🔴', WHITE: '🔵', ' ': '⬜'}
 
 
@@ -25,11 +25,13 @@ class Board:
         return '\n'.join((self.turn, b))
 
     def __str__(self):
-        text = '|'.join(COLS) + '\n'
+        text = '#|{}|#\n'.format('|'.join(COLS))
         for i, row in enumerate(self._board):
+            text += ROWS[i] + '|'
             for d in row:
-                text += '{}|'.format(DISKS[d])
+                text += DISKS[d] + '|'
             text += '{}\n'.format(ROWS[i])
+        text = '#|{}|#'.format('|'.join(COLS))
         return text
 
     def get_score(self):
