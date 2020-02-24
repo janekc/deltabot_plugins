@@ -206,7 +206,7 @@ class Chess(Plugin):
         chat = cls.bot.get_chat(ctx.msg)
         r = cls.db.execute(
             'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        if r is None:
+        if r is None or r['game'] is None:
             return
         p1, p2 = map(cls.bot.get_contact, r['players'].split(','))
         me = cls.bot.get_contact()
