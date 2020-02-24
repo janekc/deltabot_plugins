@@ -31,7 +31,7 @@ class Board:
             for d in row:
                 text += DISKS[d] + '|'
             text += '{}\n'.format(ROWS[i])
-        text = '#|{}|#'.format('|'.join(COLS))
+        text += '#|{}|#'.format('|'.join(COLS))
         return text
 
     def get_score(self):
