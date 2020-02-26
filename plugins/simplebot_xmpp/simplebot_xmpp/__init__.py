@@ -47,11 +47,10 @@ class BridgeXMPP(Plugin):
         cls.db = DBManager(os.path.join(
             cls.bot.get_dir(__name__), 'xmpp.db'))
 
-        cls.xmpp = XMPP(cls)
-        cls.xmpp.connect()
+        cls.connected = Event()
         cls.worker = Thread(target=cls.listen_to_xmpp)
         cls.worker.start()
-        cls.xmpp.connected.wait()
+        cls.connected.wait()
 
         cls.description = _('A bridge between Delta Chat and XMPP network.')
         cls.filters = [PluginFilter(cls.process_messages)]
@@ -118,7 +117,15 @@ class BridgeXMPP(Plugin):
 
     @classmethod
     def listen_to_xmpp(cls):
-        cls.xmpp.process(forever=False)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        cls.xmpp = XMPP(cls)
+        while True:
+            try:
+                cls.xmpp.connect()
+                cls.xmpp.process(forever=False)
+            except Exception as ex:
+                cls.logger.exception(ex)
 
     @classmethod
     def wait(cls, coro):
@@ -297,7 +304,6 @@ class XMPP(ClientXMPP):
         self.bridge = bridge
         self.nick = bridge.cfg['nick']
         self.get_args = bridge.bot.get_args
-        self.connected = Event()
 
         self.add_event_handler("session_start", self.session_start)
         self.add_event_handler("message", self.message)
@@ -319,7 +325,7 @@ class XMPP(ClientXMPP):
         for jid in self.bridge.get_channels():
             self.join_muc(jid)
 
-        self.connected.set()
+        self.bridge.connected.set()
 
     def message(self, msg):
         if msg['mucnick'] == self.nick:

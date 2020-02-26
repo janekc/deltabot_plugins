@@ -118,7 +118,7 @@ class Chess(Plugin):
             cls.bot.send_html(chat, html, cls.name, text, None)
         else:
             if result == '1/2-1/2':
-                text = _('Game over.\nIt is a draw!\n\n{}').format(format(b))
+                text = _('🤝 Game over.\nIt is a draw!\n\n{}').format(format(b))
                 html = cls.template.render(**kwargs)
                 cls.bot.send_html(chat, html, cls.name, text, None)
             else:
@@ -147,7 +147,7 @@ class Chess(Plugin):
                 'SELECT * FROM games WHERE players=?', (players,)).fetchone()
             if r is None:  # first time playing with p2
                 chat = cls.bot.create_group(
-                    '♞ {} Vs {} [{}]'.format(p1, p2, cls.name), [p1, p2])
+                    '♞ {} 🆚 {} [{}]'.format(p1, p2, cls.name), [p1, p2])
                 game = chess.pgn.Game()
                 game.headers['White'] = p1
                 game.headers['Black'] = p2
@@ -206,7 +206,7 @@ class Chess(Plugin):
         chat = cls.bot.get_chat(ctx.msg)
         r = cls.db.execute(
             'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        if r is None:
+        if r is None or r['game'] is None:
             return
         p1, p2 = map(cls.bot.get_contact, r['players'].split(','))
         me = cls.bot.get_contact()
