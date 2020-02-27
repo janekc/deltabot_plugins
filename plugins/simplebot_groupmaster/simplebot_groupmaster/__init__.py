@@ -416,8 +416,8 @@ class GroupMaster(Plugin):
         chat = cls.bot.get_chat(ctx.msg)
         mg = cls.get_mgroup(chat.id)
         if new_topic:
-            if len(new_topic) > 250:
-                new_topic = new_topic[:250]+'...'
+            if len(new_topic) > 500:
+                new_topic = new_topic[:500]+'...'
             addr = ctx.msg.get_sender_contact().addr
             banner = _('** {} changed topic to:\n{}')
             if mg:
