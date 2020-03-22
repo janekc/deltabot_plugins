@@ -128,13 +128,13 @@ class GroupMaster(Plugin):
             ctx.text = '{}:\n{}'.format(
                 nick, ctx.text) if ctx.text else nick
             if ctx.msg.filename:
-                if os.path.getsize(ctx.msg.filename) <= 61440:  # <=60KB
+                if os.path.getsize(ctx.msg.filename) <= 102400:
                     for g in cls.get_mchats(mg['id']):
                         if g.id != chat.id:
                             cls.bot.send_file(g, ctx.msg.filename, ctx.text)
                 else:
                     chat.send_text(
-                        _('Message is too big, only up to 60KB are allowed'))
+                        _('Message is too big, up to 100KB are allowed'))
             else:
                 for g in cls.get_mchats(mg['id']):
                     if g.id != chat.id:
@@ -152,7 +152,7 @@ class GroupMaster(Plugin):
                         cls.bot.send_file(g, ctx.msg.filename, ctx.text)
                 else:
                     chat.send_text(
-                        _('Message is too big, only up to 100KB are allowed'))
+                        _('Message is too big, up to 100KB are allowed'))
             else:
                 contacts = chat.get_contacts()
                 if sender not in contacts:
