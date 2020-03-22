@@ -275,8 +275,11 @@ class RSS(Plugin):
                             if pref['mode'] in (Mode.TEXT, Mode.TEXT_HTMLZIP):
                                 g.send_text(text)
                             else:
-                                cls.bot.send_html(
-                                    g, html, cls.name, '', pref['mode'])
+                                try:
+                                    cls.bot.send_html(
+                                        g, html, cls.name, '', pref['mode'])
+                                except ValueError:
+                                    g.remove_contact(me)
                         else:
                             ids = feed['chats'].split()
                             ids.remove(gid)
