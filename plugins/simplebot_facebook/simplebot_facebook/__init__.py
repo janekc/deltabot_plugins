@@ -339,8 +339,11 @@ class FacebookBridge(Plugin):
                         aac_file = AudioSegment.from_file(filename, 'aac')
                         filename = filename[:-4]+'.mp3'
                         aac_file.export(filename, format='mp3')
-                    onlogin.user.sendLocalFiles(
-                        [filename], message=msg, thread_id=g['thread_id'], thread_type=thread_type)
+                        onlogin.user.sendLocalVoiceClips(
+                            [filename], message=msg, thread_id=g['thread_id'], thread_type=thread_type)
+                    else:
+                        onlogin.user.sendLocalFiles(
+                            [filename], message=msg, thread_id=g['thread_id'], thread_type=thread_type)
                 elif msg:
                     onlogin.user.send(msg, thread_id=g['thread_id'],
                                       thread_type=thread_type)
