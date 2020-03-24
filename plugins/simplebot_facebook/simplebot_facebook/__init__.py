@@ -6,7 +6,7 @@ import json
 import os
 import sqlite3
 
-from fbchat import Client, Message, ThreadType, FBchatException, ImageAttachment, FileAttachment, AudioAttachment, VideoAttachment
+from fbchat import Client, Message, ThreadType, FBchatException, ImageAttachment, FileAttachment, AudioAttachment, VideoAttachment, FBchatException
 from simplebot import Plugin, PluginCommand, PluginFilter
 from pydub import AudioSegment
 import bs4
@@ -363,7 +363,11 @@ class FacebookBridge(Plugin):
                 'SELECT group_id, thread_type, status FROM groups '
                 'WHERE thread_id=? AND addr=?', (t_id, addr)).fetchone()
             if row is None:
-                t = user.fetchThreadInfo(t_id)[t_id]
+                try:
+                    t = user.fetchThreadInfo(t_id)[t_id]
+                except FBchatException as ex:
+                    cls.bot.logger.error('Failed to fetch Thread: %s', ex)
+                    continue
                 g = cls._create_group(user, t, addr)
                 thread_type = t.type
             else:
