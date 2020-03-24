@@ -8,6 +8,7 @@ import sqlite3
 
 from fbchat import Client, Message, ThreadType, FBchatException, ImageAttachment, FileAttachment, AudioAttachment, VideoAttachment
 from simplebot import Plugin, PluginCommand, PluginFilter
+from pydub import AudioSegment
 import bs4
 import requests
 
@@ -334,6 +335,10 @@ class FacebookBridge(Plugin):
                 thread_type = ThreadType(g['thread_type'])
                 msg = Message(text) if text else None
                 if filename:
+                    if filename.endswith('.aac'):
+                        aac_file = AudioSegment.from_file(filename, 'aac')
+                        filename = filename[:-4]+'.mp3'
+                        aac_file.export(filename, format='mp3')
                     onlogin.user.sendLocalFiles(
                         [filename], message=msg, thread_id=g['thread_id'], thread_type=thread_type)
                 elif msg:
