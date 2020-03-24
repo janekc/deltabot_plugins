@@ -366,7 +366,7 @@ class FacebookBridge(Plugin):
                 try:
                     t = user.fetchThreadInfo(t_id)[t_id]
                 except FBchatException as ex:
-                    cls.bot.logger.error('Failed to fetch Thread: %s', ex)
+                    cls.bot.logger.error('Failed to fetch Thread: %s', str(ex)[:30])
                     continue
                 g = cls._create_group(user, t, addr)
                 thread_type = t.type
