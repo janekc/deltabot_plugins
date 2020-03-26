@@ -39,7 +39,7 @@ class GroupMaster(Plugin):
 
         save = False
         cls.cfg = cls.bot.get_config(__name__)
-        if not cls.cfg.get('max_group_size'):
+        if not cls.cfg.get('max_mgroup_size'):
             cls.cfg['max_mgroup_size'] = '20'
             save = True
         if save:
