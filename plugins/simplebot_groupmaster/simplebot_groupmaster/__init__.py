@@ -560,7 +560,10 @@ class GroupMaster(Plugin):
                                 fd.write(img['image'])
                             g.set_profile_image(file_name)
                     else:
-                        g.add_contact(sender)
+                        try:
+                            g.add_contact(sender)
+                        except ValueError as ex:
+                            cls.bot.logger.exception(ex)
                     g.send_text(banner.format(
                         mg['name'], ctx.text, mg['topic']))
                     return
