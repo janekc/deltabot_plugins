@@ -36,6 +36,9 @@ class BridgeXMPP(Plugin):
         if not cls.cfg.get('nick'):
             cls.cfg['nick'] = 'SimpleBot'
             save = True
+        if not cls.cfg.get('max_group_size'):
+            cls.cfg['max_group_size'] = '20'
+            save = True
         if save:
             cls.bot.save_config()
 
@@ -261,15 +264,23 @@ class BridgeXMPP(Plugin):
             ch = {'jid': ctx.text}
             chats = []
 
-        for g in chats:
-            if sender in g.get_contacts():
-                g.send_text(
+        g = None
+        gsize = cls.cfg.getint('max_group_size')
+        for group in chats:
+            contacts = group.get_contacts()
+            if sender in contacts:
+                group.send_text(
                     _('You are already a member of this group'))
                 return
-
-        g = cls.bot.create_group('🇽 '+ch['jid'], [sender])
-        cls.db.execute('INSERT INTO cchats VALUES (?,?)',
-                       (g.id, ch['jid']))
+            if len(contacts) < gsize:
+                g = group
+                gsize = len(contacts)
+        if g is None:
+            g = cls.bot.create_group('🇽 '+ch['jid'], [sender])
+            cls.db.execute('INSERT INTO cchats VALUES (?,?)',
+                           (g.id, ch['jid']))
+        else:
+            g.add_contact(sender)
 
         def callback(fut):
             try:
