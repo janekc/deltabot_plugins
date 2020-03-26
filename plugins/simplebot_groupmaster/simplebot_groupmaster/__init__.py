@@ -196,7 +196,10 @@ class GroupMaster(Plugin):
                 chats.append(chat)
         for chat in invalid_chats:
             cls.db.execute('DELETE FROM mchats WHERE id=?', (chat.id,))
-            chat.remove_contact(me)
+            try:
+                chat.remove_contact(me)
+            except ValueError as ex:
+                cls.bot.logger.exception(ex)
         if not chats:
             cls.db.execute('DELETE FROM mgroups WHERE id=?', (mgid,))
             cls.db.execute('DELETE FROM mg_images WHERE mgroup=?', (mgid,))
@@ -235,7 +238,10 @@ class GroupMaster(Plugin):
                     chats.append(chat)
         for chat in invalid_chats:
             cls.db.execute('DELETE FROM cchats WHERE id=?', (chat.id,))
-            chat.remove_contact(me)
+            try:
+                chat.remove_contact(me)
+            except ValueError as ex:
+                cls.bot.logger.exception(ex)
         return chats
 
     @classmethod
