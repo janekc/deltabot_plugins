@@ -37,6 +37,14 @@ class GroupMaster(Plugin):
     def activate(cls, bot):
         super().activate(bot)
 
+        save = False
+        cls.cfg = cls.bot.get_config(__name__)
+        if not cls.cfg.get('max_group_size'):
+            cls.cfg['max_mgroup_size'] = '20'
+            save = True
+        if save:
+            cls.bot.save_config()
+
         cls.env = Environment(
             loader=PackageLoader(__name__, 'templates'),
             autoescape=select_autoescape(['html', 'xml'])
@@ -521,23 +529,32 @@ class GroupMaster(Plugin):
                 mg = cls.db.execute(
                     'SELECT * FROM mgroups WHERE id=?', (gid,)).fetchone()
                 if mg and (mg['status'] == Status.PUBLIC or mg['pid'] == pid):
-                    for g in cls.get_mchats(mg['id']):
-                        if sender in g.get_contacts():
+                    g = None
+                    gsize = cls.cfg.getint('max_mgroup_size')
+                    for group in cls.get_mchats(mg['id']):
+                        contacts = group.get_contacts()
+                        if sender in contacts:
                             chat.send_text(
                                 _('You are already a member of that group'))
                             return
-                    g = cls.bot.create_group(
-                        mg['name'], [sender])
-                    cls.db.execute(
-                        'INSERT INTO mchats VALUES (?,?)', (g.id, mg['id']))
-                    img = cls.db.execute(
-                        'SELECT image, extension FROM mg_images WHERE mgroup=?', (mg['id'],)).fetchone()
-                    if img:
-                        file_name = cls.bot.get_blobpath(
-                            'mg-image.{}'.format(img['extension']))
-                        with open(file_name, 'wb') as fd:
-                            fd.write(img['image'])
-                        g.set_profile_image(file_name)
+                        if len(contacts) < gsize:
+                            g = group
+                            gsize = len(contacts)
+                    if g is None:
+                        g = cls.bot.create_group(
+                            mg['name'], [sender])
+                        cls.db.execute(
+                            'INSERT INTO mchats VALUES (?,?)', (g.id, mg['id']))
+                        img = cls.db.execute(
+                            'SELECT image, extension FROM mg_images WHERE mgroup=?', (mg['id'],)).fetchone()
+                        if img:
+                            file_name = cls.bot.get_blobpath(
+                                'mg-image.{}'.format(img['extension']))
+                            with open(file_name, 'wb') as fd:
+                                fd.write(img['image'])
+                            g.set_profile_image(file_name)
+                    else:
+                        g.add_contact(sender)
                     g.send_text(banner.format(
                         mg['name'], ctx.text, mg['topic']))
                     return
