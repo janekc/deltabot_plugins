@@ -534,8 +534,8 @@ class GroupMaster(Plugin):
                     for group in cls.get_mchats(mg['id']):
                         contacts = group.get_contacts()
                         if sender in contacts:
-                            chat.send_text(
-                                _('You are already a member of that group'))
+                            group.send_text(
+                                _('You are already a member of this group'))
                             return
                         if len(contacts) < gsize:
                             g = group
@@ -568,7 +568,7 @@ class GroupMaster(Plugin):
                         pid1, topic, status = cls.get_info(gid)
                         if status == Status.PUBLIC or pid1 == pid:
                             if sender in g.get_contacts():
-                                chat.send_text(
+                                g.send_text(
                                     _('You are already a member of that group'))
                             else:
                                 g.add_contact(sender)
@@ -584,14 +584,15 @@ class GroupMaster(Plugin):
                 ch = cls.db.execute(
                     'SELECT * FROM channels WHERE id=?', (gid,)).fetchone()
                 if ch and (ch['status'] == Status.PUBLIC or ch['pid'] == pid):
-                    if sender in cls.bot.get_chat(ch['admin']).get_contacts():
-                        chat.send_text(
-                            _('You are already a member of that channel'))
+                    g = cls.bot.get_chat(ch['admin'])
+                    if sender in g.get_contacts():
+                        g.send_text(
+                            _('You are already a member of this channel'))
                         return
                     for g in cls.get_cchats(ch['id']):
                         if sender in g.get_contacts():
-                            chat.send_text(
-                                _('You are already a member of that channel'))
+                            g.send_text(
+                                _('You are already a member of this channel'))
                             return
                     g = cls.bot.create_group(ch['name'], [sender])
                     cls.db.execute(
