@@ -6,14 +6,14 @@ class DBManager:
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         with self.db:
-            self.db.commit(
+            self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS channels
                 (name TEXT PRIMARY KEY)''')
-            self.db.commit(
+            self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS cchats
                 (id INTEGER PRIMARY KEY,
                 channel TEXT NOT NULL)''')
-            self.commit(
+            self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS nicks
                 (addr TEXT PRIMARY KEY,
                 nick TEXT NOT NULL)''')
