@@ -58,9 +58,13 @@ class IRCBridge(Plugin):
         cls.filters = [PluginFilter(cls.process_messages)]
         cls.bot.add_filters(cls.filters)
         cls.commands = [
-            PluginCommand('/irc/join', ['<channel>'], _('join the given channel'), cls.join_cmd),
+            PluginCommand('/irc/join', ['<channel>'], _('Join the given channel'), cls.join_cmd),
             PluginCommand('/irc/remove', ['[nick]'],
                           _('Remove the member with the given nick from the channel, if no nick is given remove yourself'), cls.remove_cmd),
+            PluginCommand('/irc/topic', [],
+                          _('Show channel topic'), cls.topic_cmd),
+            PluginCommand('/irc/members', [],
+                          _('Show channel topic'), cls.members_cmd),
             PluginCommand('/irc/nick', ['[nick]'],
                           _('Set your nick or display your current nick if no new nick is given'), cls.nick_cmd)]
         cls.bot.add_commands(cls.commands)
@@ -91,6 +95,7 @@ class IRCBridge(Plugin):
                 pass
         if not chats:
             cls.db.commit('DELETE FROM channels WHERE name=?', (cname,))
+            cls.irc.leave_channel(cname)
         return chats
 
     @classmethod
@@ -101,7 +106,7 @@ class IRCBridge(Plugin):
     @classmethod
     def irc2dc(cls, channel, sender, msg):
         for g in cls.get_cchats(channel):
-            g.send_text('{}:\n{}'.format(sender, msg))
+            g.send_text('{}[irc]:\n{}'.format(sender, msg))
 
     @classmethod
     def process_messages(cls, ctx):
@@ -129,6 +134,44 @@ class IRCBridge(Plugin):
         for g in cls.get_cchats(r[0]):
             if g.id != chat.id:
                 g.send_text(text)
+
+    @classmethod
+    def topic_cmd(cls, ctx):
+        chat = cls.bot.get_chat(ctx.msg)
+
+        r = cls.db.execute(
+            'SELECT channel from cchats WHERE id=?',
+            (chat.id,)).fetchone()
+        if not r:
+            chat.send_text(_('This is not an IRC channel'))
+            return
+
+        topic = cls.irc.get_topic(r[0])
+        chat.send_text(_('Topic:\n{}').format(topic))
+
+    @classmethod
+    def members_cmd(cls, ctx):
+        chat = cls.bot.get_chat(ctx.msg)
+        me = cls.bot.get_contact()
+
+        r = cls.db.execute(
+            'SELECT channel from cchats WHERE id=?',
+            (chat.id,)).fetchone()
+        if not r:
+            chat.send_text(_('This is not an IRC channel'))
+            return
+
+        members = ''
+        for g in cls.get_cchats(r[0]):
+            for c in g.get_contacts():
+                if c != me:
+                    members += '• {}[dc]\n'.format(
+                        cls.get_nick(c.addr))
+
+        for m in cls.irc.get_members(r[0]):
+            members += '• {}[irc]\n'.format(m)
+
+        chat.send_text(_('Members:\n{}').format(members))
 
     @classmethod
     def nick_cmd(cls, ctx):

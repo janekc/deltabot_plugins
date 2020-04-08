@@ -18,7 +18,6 @@ class IRCBot(irc.bot.SingleServerIRCBot):
         c.nick(c.get_nickname() + "_")
 
     def on_welcome(self, c, e):
-        self.conn = c
         channels = self.bridge.db.get_channels()
         for channel in channels:
             c.join(channel)
@@ -31,8 +30,29 @@ class IRCBot(irc.bot.SingleServerIRCBot):
         channel = e.target
         self.bridge.irc2dc(channel, sender, msg)
 
+    def on_notopic(self, c, e):
+        chan = self.channels[e.arguments[0]]
+        chan.topic = '-'
+
+    def on_currenttopic(self, c, e):
+        chan = self.channels[e.arguments[0]]
+        chan.topic = e.arguments[1]
+
     def join_channel(self, name):
-        self.conn.join(name)
+        self.connection.join(name)
+
+    def leave_channel(self, name):
+        self.connection.part(name)
+
+    def get_topic(self, channel):
+        self.connection.topic(channel)
+        chan = self.channels[channel]
+        if not hasattr(chan, 'topic'):
+            chan.topic = '-'
+        return chan.topic
+
+    def get_members(self, channel):
+        return list(self.channels[channel].users())
 
     def send_message(self, target, text):
-        self.conn.privmsg(target, text)
+        self.connection.privmsg(target, text)
