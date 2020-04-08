@@ -254,6 +254,8 @@ class BridgeXMPP(Plugin):
             for c in g.get_contacts():
                 if c.addr == ctx.text:
                     g.remove_contact(c)
+                    if c == sender:
+                        return
                     s_nick = cls.get_nick(sender.addr)
                     nick = cls.get_nick(c.addr)
                     text = _('** {} removed by {}').format(nick, s_nick)
