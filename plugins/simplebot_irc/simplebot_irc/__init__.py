@@ -166,7 +166,7 @@ class IRCBridge(Plugin):
             for c in g.get_contacts():
                 if c != me:
                     members += '• {}[dc]\n'.format(
-                        cls.get_nick(c.addr))
+                        cls.db.get_nick(c.addr))
 
         for m in cls.irc.get_members(r[0]):
             members += '• {}[irc]\n'.format(m)
@@ -261,8 +261,8 @@ class IRCBridge(Plugin):
             for c in g.get_contacts():
                 if c.addr == ctx.text:
                     g.remove_contact(c)
-                    s_nick = cls.get_nick(sender)
-                    nick = cls.get_nick(c.addr)
+                    s_nick = cls.db.get_nick(sender)
+                    nick = cls.db.get_nick(c.addr)
                     text = _('** {} removed by {}').format(nick, s_nick)
                     for g in cls.get_cchats(channel):
                         g.send_text(text)
