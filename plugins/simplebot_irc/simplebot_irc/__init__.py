@@ -67,6 +67,7 @@ class IRCBridge(Plugin):
 
     @classmethod
     def get_cchats(cls, cname):
+        cname = cname.lower()
         me = cls.bot.get_contact()
         chats = []
         invalid_chats = []
@@ -153,6 +154,8 @@ class IRCBridge(Plugin):
         sender = ctx.msg.get_sender_contact()
         if not ctx.text:
             return
+
+        ctx.text = ctx.text.lower()
         ch = cls.db.execute(
             'SELECT * FROM channels WHERE name=?',
             (ctx.text,)).fetchone()
