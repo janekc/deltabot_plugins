@@ -113,7 +113,10 @@ class BridgeXMPP(Plugin):
                 chats.append(chat)
         for chat in invalid_chats:
             cls.db.execute('DELETE FROM cchats WHERE id=?', (chat.id,))
-            chat.remove_contact(me)
+            try:
+                chat.remove_contact(me)
+            except ValueError:
+                pass
         if not chats:
             cls.db.execute('DELETE FROM channels WHERE jid=?', (jid,))
         return chats
