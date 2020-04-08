@@ -4,7 +4,7 @@ import gettext
 import os
 import re
 
-from simplebot import Plugin, PluginCommand
+from simplebot import Plugin, PluginCommand, PluginFilter
 from .irc import IRCBot
 from .database import DBManager
 
@@ -55,9 +55,12 @@ class IRCBridge(Plugin):
         cls.bot.logger.debug('Connected to IRC')
 
         cls.description = _('IRC <--> Delta Chat bridge.')
-        cls.commands = []
+        filters = [PluginFilter(cls.process_messages)]
+        cls.bot.add_filters(filters)
         commands = [
             PluginCommand('/irc/join', ['<channel>'], _('join the given channel'), cls.join_cmd),
+            PluginCommand('/irc/remove', ['[nick]'],
+                          _('Remove the member with the given nick from the channel, if no nick is given remove yourself'), cls.remove_cmd),
             PluginCommand('/irc/nick', ['[nick]'],
                           _('Set your nick or display your current nick if no new nick is given'), cls.nick_cmd)]
         cls.bot.add_commands(commands)
@@ -183,3 +186,41 @@ class IRCBridge(Plugin):
         nick = cls.db.get_nick(sender.addr)
         text = _('** You joined {} as {}').format(ch['name'], nick)
         g.send_text(text)
+
+    @classmethod
+    def remove_cmd(cls, ctx):
+        chat = cls.bot.get_chat(ctx.msg)
+
+        r = cls.db.execute(
+            'SELECT channel from cchats WHERE id=?',
+            (chat.id,)).fetchone()
+        if not r:
+            chat.send_text(_('This is not an IRC channel'))
+            return
+
+        channel = r[0]
+        sender = ctx.msg.get_sender_contact().addr
+        if not ctx.text:
+            ctx.text = sender
+        if '@' not in ctx.text:
+            r = cls.db.execute(
+                'SELECT addr FROM nicks WHERE nick=?',
+                (ctx.text,)).fetchone()
+            if not r:
+                chat.send_text(_('Unknow user: {}').format(ctx.text))
+                return
+            ctx.text = r[0]
+
+        for g in cls.get_cchats(channel):
+            for c in g.get_contacts():
+                if c.addr == ctx.text:
+                    g.remove_contact(c)
+                    s_nick = cls.get_nick(sender)
+                    nick = cls.get_nick(c.addr)
+                    text = _('** {} removed by {}').format(nick, s_nick)
+                    for g in cls.get_cchats(channel):
+                        g.send_text(text)
+                    text = _('Removed from {} by {}').format(
+                        channel, s_nick)
+                    cls.bot.get_chat(c).send_text(text)
+                    return
