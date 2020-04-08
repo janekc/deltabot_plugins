@@ -222,17 +222,26 @@ class BridgeXMPP(Plugin):
     @classmethod
     def remove_cmd(cls, ctx):
         chat = cls.bot.get_chat(ctx.msg)
+        sender = ctx.msg.get_sender_contact()
 
         r = cls.db.execute(
             'SELECT channel from cchats WHERE id=?', (chat.id,)).fetchone()
-        if not r:
-            chat.send_text(_('This is not an XMPP channel'))
-            return
+        if r:
+            channel = r[0]
+        else:
+            args = ctx.text.split(maxsplit=1)
+            channel = args[0]
+            ctx.text = args[1] if len(args) == 2 else ''
+            for c in cls.get_cchats(channel):
+                if sender in c.get_contacts():
+                    break
+            else:
+                chat.send_message(
+                    _('You are not a member of that channel'))
+                return
 
-        channel = r[0]
-        sender = ctx.msg.get_sender_contact().addr
         if not ctx.text:
-            ctx.text = sender
+            ctx.text = sender.addr
         if '@' not in ctx.text:
             r = cls.db.execute(
                 'SELECT addr FROM nicks WHERE nick=?', (ctx.text,)).fetchone()
@@ -245,7 +254,7 @@ class BridgeXMPP(Plugin):
             for c in g.get_contacts():
                 if c.addr == ctx.text:
                     g.remove_contact(c)
-                    s_nick = cls.get_nick(sender)
+                    s_nick = cls.get_nick(sender.addr)
                     nick = cls.get_nick(c.addr)
                     text = _('** {} removed by {}').format(nick, s_nick)
                     for g in cls.get_cchats(channel):
