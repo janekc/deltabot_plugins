@@ -8,7 +8,7 @@ class IRCBot(irc.bot.SingleServerIRCBot):
     def __init__(self, bridge):
         cfg = bridge.cfg
         nick = cfg.get('nick')
-        server = cfg.get('host'),
+        server = cfg.get('host')
         port = cfg.getint('port')
         irc.bot.SingleServerIRCBot.__init__(
             self, [(server, port)], nick, nick)
