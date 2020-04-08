@@ -238,7 +238,7 @@ class IRCBridge(Plugin):
     @classmethod
     def remove_cmd(cls, ctx):
         chat = cls.bot.get_chat(ctx.msg)
-        sender = ctx.msg.get_sender_contact().addr
+        sender = ctx.msg.get_sender_contact()
 
         r = cls.db.execute(
             'SELECT channel from cchats WHERE id=?',
@@ -257,7 +257,7 @@ class IRCBridge(Plugin):
                     _('You are not a member of that channel'))
 
         if not ctx.text:
-            ctx.text = sender
+            ctx.text = sender.addr
         if '@' not in ctx.text:
             r = cls.db.execute(
                 'SELECT addr FROM nicks WHERE nick=?',
@@ -273,7 +273,7 @@ class IRCBridge(Plugin):
                     g.remove_contact(c)
                     if c == sender:
                         return
-                    s_nick = cls.db.get_nick(sender)
+                    s_nick = cls.db.get_nick(sender.addr)
                     nick = cls.db.get_nick(c.addr)
                     text = _('** {} removed by {}').format(nick, s_nick)
                     for g in cls.get_cchats(channel):
