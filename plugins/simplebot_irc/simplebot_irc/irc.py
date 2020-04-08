@@ -12,7 +12,6 @@ class IRCBot(irc.bot.SingleServerIRCBot):
         port = cfg.getint('port')
         irc.bot.SingleServerIRCBot.__init__(
             self, [(server, port)], nick, nick)
-        self.channels = ['#DeltaChat']
         self.bridge = bridge
 
     def on_nicknameinuse(self, c, e):
@@ -20,7 +19,8 @@ class IRCBot(irc.bot.SingleServerIRCBot):
 
     def on_welcome(self, c, e):
         self.conn = c
-        for channel in self.channels:
+        channels = self.bridge.db.get_channels()
+        for channel in channels:
             c.join(channel)
             time.sleep(1)
         self.bridge.connected.set()

@@ -63,11 +63,6 @@ class IRCBridge(Plugin):
         cls.bot.add_commands(commands)
 
     @classmethod
-    def get_channels(cls):
-        for r in cls.db.execute('SELECT name FROM channels'):
-            yield r[0]
-
-    @classmethod
     def get_cchats(cls, cname):
         me = cls.bot.get_contact()
         chats = []

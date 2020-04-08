@@ -18,6 +18,10 @@ class DBManager:
                 (addr TEXT PRIMARY KEY,
                 nick TEXT NOT NULL)''')
 
+    def get_channels(self):
+        for r in self.db.execute('SELECT name FROM channels'):
+            yield r[0]
+
     def get_nick(self, addr):
         r = self.execute(
             'SELECT nick from nicks WHERE addr=?', (addr,)).fetchone()
