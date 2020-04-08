@@ -47,11 +47,12 @@ class IRCBridge(Plugin):
         cls.db = DBManager(os.path.join(
             cls.bot.get_dir(__name__), 'irc.db'))
 
+        cls.bot.logger.debug('Starting IRC worker')
         cls.connected = Event()
         cls.worker = Thread(target=cls.listen_to_irc)
         cls.worker.start()
         cls.connected.wait()
-        cls.bot.logger.info('connected to IRC')
+        cls.bot.logger.debug('Connected to IRC')
 
         cls.description = _('IRC <--> Delta Chat bridge.')
         cls.commands = []
