@@ -145,11 +145,13 @@ class BridgeXMPP(Plugin):
 
         ctx.processed = True
         sender = ctx.msg.get_sender_contact()
-        nick = cls.get_nick(sender.addr)
+        me = cls.bot.get_contact()
+        contacts = chat.get_contacts()
 
-        if sender not in chat.get_contacts():
+        if sender not in contacts or me not in contacts:
             return
 
+        nick = cls.get_nick(sender.addr)
         text = '{}[dc]:\n{}'.format(nick, ctx.text)
         if ctx.msg.filename:
             coro = cls.xmpp['xep_0363'].upload_file(

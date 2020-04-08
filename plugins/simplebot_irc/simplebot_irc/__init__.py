@@ -119,15 +119,17 @@ class IRCBridge(Plugin):
 
         ctx.processed = True
         sender = ctx.msg.get_sender_contact()
-        nick = cls.db.get_nick(sender.addr)
+        me = cls.bot.get_contact()
+        contacts = chat.get_contacts()
 
-        if sender not in chat.get_contacts():
+        if sender not in contacts or me not in contacts:
             return
 
         if not ctx.text or ctx.msg.filename:
             chat.send_text(_('Unsupported message'))
             return
 
+        nick = cls.db.get_nick(sender.addr)
         text = '{}[dc]: {}'.format(nick, ctx.text)
 
         cls.irc.send_message(r[0], text)
