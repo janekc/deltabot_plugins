@@ -55,15 +55,15 @@ class IRCBridge(Plugin):
         cls.bot.logger.debug('Connected to IRC')
 
         cls.description = _('IRC <--> Delta Chat bridge.')
-        filters = [PluginFilter(cls.process_messages)]
-        cls.bot.add_filters(filters)
-        commands = [
+        cls.filters = [PluginFilter(cls.process_messages)]
+        cls.bot.add_filters(cls.filters)
+        cls.commands = [
             PluginCommand('/irc/join', ['<channel>'], _('join the given channel'), cls.join_cmd),
             PluginCommand('/irc/remove', ['[nick]'],
                           _('Remove the member with the given nick from the channel, if no nick is given remove yourself'), cls.remove_cmd),
             PluginCommand('/irc/nick', ['[nick]'],
                           _('Set your nick or display your current nick if no new nick is given'), cls.nick_cmd)]
-        cls.bot.add_commands(commands)
+        cls.bot.add_commands(cls.commands)
 
     @classmethod
     def get_cchats(cls, cname):
