@@ -255,6 +255,7 @@ class IRCBridge(Plugin):
             else:
                 chat.send_message(
                     _('You are not a member of that channel'))
+                return
 
         if not ctx.text:
             ctx.text = sender.addr
