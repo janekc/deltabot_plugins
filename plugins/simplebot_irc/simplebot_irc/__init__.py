@@ -195,7 +195,7 @@ class IRCBridge(Plugin):
     @classmethod
     def join_cmd(cls, ctx):
         sender = ctx.msg.get_sender_contact()
-        if not ctx.text:
+        if not ctx.text or not cls.db.is_whitelisted(sender.addr):
             return
 
         ctx.text = ctx.text.lower()

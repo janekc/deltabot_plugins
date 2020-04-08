@@ -17,6 +17,26 @@ class DBManager:
                 '''CREATE TABLE IF NOT EXISTS nicks
                 (addr TEXT PRIMARY KEY,
                 nick TEXT NOT NULL)''')
+            self.db.execute(
+                '''CREATE TABLE IF NOT EXISTS whitelist
+                (addr TEXT PRIMARY KEY)''')
+
+    def add_user(self, addr):
+        self.commit(
+            'INSERT INTO whitelist VALUES (?)', (addr,))
+
+    def del_user(self, addr):
+        self.commit(
+            'DELETE FROM whitelist WHERE addr=?', (addr,))
+
+    def is_whitelisted(self, addr):
+        rows = self.execute('SELECT addr FROM whitelist').fetchall()
+        if not rows:
+            return True
+        for r in rows:
+            if r[0] == addr:
+                return True
+        return False
 
     def get_channels(self):
         for r in self.db.execute('SELECT name FROM channels'):
