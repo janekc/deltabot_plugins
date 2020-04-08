@@ -89,7 +89,7 @@ class IRCBridge(Plugin):
             except ValueError:
                 pass
         if not chats:
-            cls.db.commit('DELETE FROM channels WHERE jid=?', (cname,))
+            cls.db.commit('DELETE FROM channels WHERE name=?', (cname,))
         return chats
 
     @classmethod
