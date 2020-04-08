@@ -275,12 +275,6 @@ class BridgeXMPP(Plugin):
             if len(contacts) < gsize:
                 g = group
                 gsize = len(contacts)
-        if g is None:
-            g = cls.bot.create_group('🇽 '+ch['jid'], [sender])
-            cls.db.execute('INSERT INTO cchats VALUES (?,?)',
-                           (g.id, ch['jid']))
-        else:
-            g.add_contact(sender)
 
         def callback(fut):
             try:
@@ -297,10 +291,16 @@ class BridgeXMPP(Plugin):
             finally:
                 done.set()
 
-        done = Event()
-        cls.xmpp['xep_0054'].get_vcard(
-            ch['jid'], cached=True, timeout=5).add_done_callback(callback)
-        done.wait()
+        if g is None:
+            g = cls.bot.create_group('🇽 '+ch['jid'], [sender])
+            cls.db.execute('INSERT INTO cchats VALUES (?,?)',
+                           (g.id, ch['jid']))
+            done = Event()
+            cls.xmpp['xep_0054'].get_vcard(
+                ch['jid'], cached=True, timeout=5).add_done_callback(callback)
+            done.wait()
+        else:
+            g.add_contact(sender)
 
         nick = cls.get_nick(sender.addr)
         text = _('** You joined {} as {}').format(ch['jid'], nick)
