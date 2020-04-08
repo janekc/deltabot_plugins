@@ -174,7 +174,7 @@ class IRCBridge(Plugin):
                 g = group
                 gsize = len(contacts)
         if g is None:
-            g = cls.bot.create_group('[IRC] '+ch['name'], [sender])
+            g = cls.bot.create_group(ch['name'], [sender])
             cls.db.commit('INSERT INTO cchats VALUES (?,?)',
                           (g.id, ch['name']))
         else:
