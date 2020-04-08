@@ -227,10 +227,10 @@ class MastodonBridge(Plugin):
             'SELECT * FROM accounts WHERE notifications=? OR settings=? OR toots=?', (chat.id,)*3).fetchone()
         if not acc:
             pv = cls.db.execute(
-                'SELECT api_url, username FROM priv_chats WHERE id=?', (chat.id,))
+                'SELECT api_url, username FROM priv_chats WHERE id=?', (chat.id,)).fetchone()
             if pv:
                 acc = cls.db.execute(
-                    'SELECT * FROM accounts WHERE api_url=? AND username=?', (pv['api_url'], pv['username']))
+                    'SELECT * FROM accounts WHERE api_url=? AND username=?', (pv['api_url'], pv['username'])).fetchone()
         return acc
 
     @classmethod
