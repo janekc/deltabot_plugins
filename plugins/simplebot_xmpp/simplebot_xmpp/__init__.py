@@ -64,7 +64,7 @@ class BridgeXMPP(Plugin):
             PluginCommand('/xmpp/nick', ['[nick]'],
                           _('Set your nick or display your current nick if no new nick is given'), cls.nick_cmd),
             PluginCommand('/xmpp/members', [],
-                          _('Show group memeber list'), cls.members_cmd),
+                          _('Show group member list'), cls.members_cmd),
             PluginCommand('/xmpp/remove', ['[nick]'],
                           _('Remove the member with the given nick from the group, if no nick is given remove yourself'), cls.remove_cmd),
         ]
