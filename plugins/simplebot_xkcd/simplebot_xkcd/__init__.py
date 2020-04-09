@@ -29,7 +29,7 @@ class XKCD(Plugin):
 
     @classmethod
     def _send_comic(cls, chat, comic):
-        text = '#{} - {}\n{}'.format(
+        text = '#{} - {}\n\n{}'.format(
             comic.number, comic.title, comic.altText)
         path = comic.download(cls.bot.get_blobdir())
         cls.bot.send_file(chat, path, text, view_type='image')
