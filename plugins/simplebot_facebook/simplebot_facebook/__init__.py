@@ -416,10 +416,18 @@ class FacebookBridge(Plugin):
                         names[msg.author] = user.fetchUserInfo(msg.author)[
                             msg.author].name
                     text = '{}:\n{}'.format(names[msg.author], text)
+
+                max_size = cls.cfg.getint('max-size')
+
+                if attachments and max_size == 0:
+                    text += '\n\n' + '\n\n'.join(attachments)
+
                 if text:
                     g.send_text(text)
 
-                max_size = cls.cfg.getint('max-size')
+                if max_size == 0:
+                    return
+
                 for url in attachments:
                     file_name = os.path.basename(url).split('?')[
                         0].split('#')[0].lower()
