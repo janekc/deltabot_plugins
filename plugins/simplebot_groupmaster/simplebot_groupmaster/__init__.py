@@ -37,6 +37,14 @@ class GroupMaster(Plugin):
     def activate(cls, bot):
         super().activate(bot)
 
+        save = False
+        cls.cfg = cls.bot.get_config(__name__)
+        if not cls.cfg.get('max_mgroup_size'):
+            cls.cfg['max_mgroup_size'] = '20'
+            save = True
+        if save:
+            cls.bot.save_config()
+
         cls.env = Environment(
             loader=PackageLoader(__name__, 'templates'),
             autoescape=select_autoescape(['html', 'xml'])
@@ -128,13 +136,13 @@ class GroupMaster(Plugin):
             ctx.text = '{}:\n{}'.format(
                 nick, ctx.text) if ctx.text else nick
             if ctx.msg.filename:
-                if os.path.getsize(ctx.msg.filename) <= 61440:  # <=60KB
+                if os.path.getsize(ctx.msg.filename) <= 102400:
                     for g in cls.get_mchats(mg['id']):
                         if g.id != chat.id:
                             cls.bot.send_file(g, ctx.msg.filename, ctx.text)
                 else:
                     chat.send_text(
-                        _('Message is too big, only up to 60KB are allowed'))
+                        _('Message is too big, up to 100KB are allowed'))
             else:
                 for g in cls.get_mchats(mg['id']):
                     if g.id != chat.id:
@@ -152,7 +160,7 @@ class GroupMaster(Plugin):
                         cls.bot.send_file(g, ctx.msg.filename, ctx.text)
                 else:
                     chat.send_text(
-                        _('Message is too big, only up to 100KB are allowed'))
+                        _('Message is too big, up to 100KB are allowed'))
             else:
                 contacts = chat.get_contacts()
                 if sender not in contacts:
@@ -188,7 +196,10 @@ class GroupMaster(Plugin):
                 chats.append(chat)
         for chat in invalid_chats:
             cls.db.execute('DELETE FROM mchats WHERE id=?', (chat.id,))
-            chat.remove_contact(me)
+            try:
+                chat.remove_contact(me)
+            except ValueError as ex:
+                cls.bot.logger.exception(ex)
         if not chats:
             cls.db.execute('DELETE FROM mgroups WHERE id=?', (mgid,))
             cls.db.execute('DELETE FROM mg_images WHERE mgroup=?', (mgid,))
@@ -227,7 +238,10 @@ class GroupMaster(Plugin):
                     chats.append(chat)
         for chat in invalid_chats:
             cls.db.execute('DELETE FROM cchats WHERE id=?', (chat.id,))
-            chat.remove_contact(me)
+            try:
+                chat.remove_contact(me)
+            except ValueError as ex:
+                cls.bot.logger.exception(ex)
         return chats
 
     @classmethod
@@ -416,8 +430,8 @@ class GroupMaster(Plugin):
         chat = cls.bot.get_chat(ctx.msg)
         mg = cls.get_mgroup(chat.id)
         if new_topic:
-            if len(new_topic) > 250:
-                new_topic = new_topic[:250]+'...'
+            if len(new_topic) > 500:
+                new_topic = new_topic[:500]+'...'
             addr = ctx.msg.get_sender_contact().addr
             banner = _('** {} changed topic to:\n{}')
             if mg:
@@ -521,23 +535,35 @@ class GroupMaster(Plugin):
                 mg = cls.db.execute(
                     'SELECT * FROM mgroups WHERE id=?', (gid,)).fetchone()
                 if mg and (mg['status'] == Status.PUBLIC or mg['pid'] == pid):
-                    for g in cls.get_mchats(mg['id']):
-                        if sender in g.get_contacts():
-                            chat.send_text(
-                                _('You are already a member of that group'))
+                    g = None
+                    gsize = cls.cfg.getint('max_mgroup_size')
+                    for group in cls.get_mchats(mg['id']):
+                        contacts = group.get_contacts()
+                        if sender in contacts:
+                            group.send_text(
+                                _('You are already a member of this group'))
                             return
-                    g = cls.bot.create_group(
-                        mg['name'], [sender])
-                    cls.db.execute(
-                        'INSERT INTO mchats VALUES (?,?)', (g.id, mg['id']))
-                    img = cls.db.execute(
-                        'SELECT image, extension FROM mg_images WHERE mgroup=?', (mg['id'],)).fetchone()
-                    if img:
-                        file_name = cls.bot.get_blobpath(
-                            'mg-image.{}'.format(img['extension']))
-                        with open(file_name, 'wb') as fd:
-                            fd.write(img['image'])
-                        g.set_profile_image(file_name)
+                        if len(contacts) < gsize:
+                            g = group
+                            gsize = len(contacts)
+                    if g is None:
+                        g = cls.bot.create_group(
+                            mg['name'], [sender])
+                        cls.db.execute(
+                            'INSERT INTO mchats VALUES (?,?)', (g.id, mg['id']))
+                        img = cls.db.execute(
+                            'SELECT image, extension FROM mg_images WHERE mgroup=?', (mg['id'],)).fetchone()
+                        if img:
+                            file_name = cls.bot.get_blobpath(
+                                'mg-image.{}'.format(img['extension']))
+                            with open(file_name, 'wb') as fd:
+                                fd.write(img['image'])
+                            g.set_profile_image(file_name)
+                    else:
+                        try:
+                            g.add_contact(sender)
+                        except ValueError as ex:
+                            cls.bot.logger.exception(ex)
                     g.send_text(banner.format(
                         mg['name'], ctx.text, mg['topic']))
                     return
@@ -551,7 +577,7 @@ class GroupMaster(Plugin):
                         pid1, topic, status = cls.get_info(gid)
                         if status == Status.PUBLIC or pid1 == pid:
                             if sender in g.get_contacts():
-                                chat.send_text(
+                                g.send_text(
                                     _('You are already a member of that group'))
                             else:
                                 g.add_contact(sender)
@@ -567,14 +593,15 @@ class GroupMaster(Plugin):
                 ch = cls.db.execute(
                     'SELECT * FROM channels WHERE id=?', (gid,)).fetchone()
                 if ch and (ch['status'] == Status.PUBLIC or ch['pid'] == pid):
-                    if sender in cls.bot.get_chat(ch['admin']).get_contacts():
-                        chat.send_text(
-                            _('You are already a member of that channel'))
+                    g = cls.bot.get_chat(ch['admin'])
+                    if sender in g.get_contacts():
+                        g.send_text(
+                            _('You are already a member of this channel'))
                         return
                     for g in cls.get_cchats(ch['id']):
                         if sender in g.get_contacts():
-                            chat.send_text(
-                                _('You are already a member of that channel'))
+                            g.send_text(
+                                _('You are already a member of this channel'))
                             return
                     g = cls.bot.create_group(ch['name'], [sender])
                     cls.db.execute(

@@ -1,5 +1,5 @@
 .PHONY: all
-all: echo friends groupmaster help tictactoe translator webgrabber wikiquote xkcd admin shortcuts rss facebook mastodon avatar meme cartv cuba_weather xmpp chess reversi
+all: echo friends groupmaster help tictactoe translator webgrabber wikiquote xkcd admin shortcuts rss facebook mastodon avatar meme cartv cuba_weather xmpp chess reversi irc
 
 .PHONY: echo
 echo:
@@ -84,3 +84,7 @@ chess:
 .PHONY: reversi
 reversi:
 	echo y | pip uninstall simplebot_reversi; pip install plugins/simplebot_reversi
+
+.PHONY: irc
+irc:
+	echo y | pip uninstall simplebot_irc; pip install plugins/simplebot_irc

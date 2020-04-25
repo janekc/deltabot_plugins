@@ -36,6 +36,9 @@ class BridgeXMPP(Plugin):
         if not cls.cfg.get('nick'):
             cls.cfg['nick'] = 'SimpleBot'
             save = True
+        if not cls.cfg.get('max_group_size'):
+            cls.cfg['max_group_size'] = '20'
+            save = True
         if save:
             cls.bot.save_config()
 
@@ -61,7 +64,7 @@ class BridgeXMPP(Plugin):
             PluginCommand('/xmpp/nick', ['[nick]'],
                           _('Set your nick or display your current nick if no new nick is given'), cls.nick_cmd),
             PluginCommand('/xmpp/members', [],
-                          _('Show group memeber list'), cls.members_cmd),
+                          _('Show group member list'), cls.members_cmd),
             PluginCommand('/xmpp/remove', ['[nick]'],
                           _('Remove the member with the given nick from the group, if no nick is given remove yourself'), cls.remove_cmd),
         ]
@@ -110,7 +113,10 @@ class BridgeXMPP(Plugin):
                 chats.append(chat)
         for chat in invalid_chats:
             cls.db.execute('DELETE FROM cchats WHERE id=?', (chat.id,))
-            chat.remove_contact(me)
+            try:
+                chat.remove_contact(me)
+            except ValueError:
+                pass
         if not chats:
             cls.db.execute('DELETE FROM channels WHERE jid=?', (jid,))
         return chats
@@ -142,11 +148,13 @@ class BridgeXMPP(Plugin):
 
         ctx.processed = True
         sender = ctx.msg.get_sender_contact()
-        nick = cls.get_nick(sender.addr)
+        me = cls.bot.get_contact()
+        contacts = chat.get_contacts()
 
-        if sender not in chat.get_contacts():
+        if sender not in contacts or me not in contacts:
             return
 
+        nick = cls.get_nick(sender.addr)
         text = '{}[dc]:\n{}'.format(nick, ctx.text)
         if ctx.msg.filename:
             coro = cls.xmpp['xep_0363'].upload_file(
@@ -214,17 +222,26 @@ class BridgeXMPP(Plugin):
     @classmethod
     def remove_cmd(cls, ctx):
         chat = cls.bot.get_chat(ctx.msg)
+        sender = ctx.msg.get_sender_contact()
 
         r = cls.db.execute(
             'SELECT channel from cchats WHERE id=?', (chat.id,)).fetchone()
-        if not r:
-            chat.send_text(_('This is not an XMPP channel'))
-            return
+        if r:
+            channel = r[0]
+        else:
+            args = ctx.text.split(maxsplit=1)
+            channel = args[0]
+            ctx.text = args[1] if len(args) == 2 else ''
+            for c in cls.get_cchats(channel):
+                if sender in c.get_contacts():
+                    break
+            else:
+                chat.send_message(
+                    _('You are not a member of that channel'))
+                return
 
-        channel = r[0]
-        sender = ctx.msg.get_sender_contact().addr
         if not ctx.text:
-            ctx.text = sender
+            ctx.text = sender.addr
         if '@' not in ctx.text:
             r = cls.db.execute(
                 'SELECT addr FROM nicks WHERE nick=?', (ctx.text,)).fetchone()
@@ -237,7 +254,9 @@ class BridgeXMPP(Plugin):
             for c in g.get_contacts():
                 if c.addr == ctx.text:
                     g.remove_contact(c)
-                    s_nick = cls.get_nick(sender)
+                    if c == sender:
+                        return
+                    s_nick = cls.get_nick(sender.addr)
                     nick = cls.get_nick(c.addr)
                     text = _('** {} removed by {}').format(nick, s_nick)
                     for g in cls.get_cchats(channel):
@@ -261,15 +280,17 @@ class BridgeXMPP(Plugin):
             ch = {'jid': ctx.text}
             chats = []
 
-        for g in chats:
-            if sender in g.get_contacts():
-                g.send_text(
+        g = None
+        gsize = cls.cfg.getint('max_group_size')
+        for group in chats:
+            contacts = group.get_contacts()
+            if sender in contacts:
+                group.send_text(
                     _('You are already a member of this group'))
                 return
-
-        g = cls.bot.create_group('🇽 '+ch['jid'], [sender])
-        cls.db.execute('INSERT INTO cchats VALUES (?,?)',
-                       (g.id, ch['jid']))
+            if len(contacts) < gsize:
+                g = group
+                gsize = len(contacts)
 
         def callback(fut):
             try:
@@ -286,10 +307,16 @@ class BridgeXMPP(Plugin):
             finally:
                 done.set()
 
-        done = Event()
-        cls.xmpp['xep_0054'].get_vcard(
-            ch['jid'], cached=True, timeout=5).add_done_callback(callback)
-        done.wait()
+        if g is None:
+            g = cls.bot.create_group('🇽 '+ch['jid'], [sender])
+            cls.db.execute('INSERT INTO cchats VALUES (?,?)',
+                           (g.id, ch['jid']))
+            done = Event()
+            cls.xmpp['xep_0054'].get_vcard(
+                ch['jid'], cached=True, timeout=5).add_done_callback(callback)
+            done.wait()
+        else:
+            g.add_contact(sender)
 
         nick = cls.get_nick(sender.addr)
         text = _('** You joined {} as {}').format(ch['jid'], nick)

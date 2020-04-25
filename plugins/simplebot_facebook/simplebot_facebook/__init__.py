@@ -6,8 +6,9 @@ import json
 import os
 import sqlite3
 
-from fbchat import Client, Message, ThreadType, FBchatException, ImageAttachment, FileAttachment, AudioAttachment, VideoAttachment
+from fbchat import Client, Message, ThreadType, FBchatException, ImageAttachment, FileAttachment, AudioAttachment, VideoAttachment, FBchatException
 from simplebot import Plugin, PluginCommand, PluginFilter
+from pydub import AudioSegment
 import bs4
 import requests
 
@@ -110,7 +111,7 @@ class FacebookBridge(Plugin):
             raise ValueError('Verification timed out.')
 
         u = cls.db.execute(
-            'SELECT * FROM users WHERE addr=?', (addr,), 'one')
+            'SELECT * FROM users WHERE addr=?', (addr,)).fetchone()
         onlogin.user = None
         try:
             onlogin.user = FBUser(
@@ -188,7 +189,7 @@ class FacebookBridge(Plugin):
         addr = ctx.msg.get_sender_contact().addr
         uname, passwd = ctx.text.split(maxsplit=1)
         old_user = cls.db.execute(
-            'SELECT * FROM users WHERE addr=?', (addr,), 'one')
+            'SELECT * FROM users WHERE addr=?', (addr,)).fetchone()
         if not (old_user and old_user['cookie']):
             cls.db.insert_user((addr, uname, passwd, None, Status.DISABLED))
             Thread(target=create_chats, args=(addr,), daemon=True).start()
@@ -219,7 +220,7 @@ class FacebookBridge(Plugin):
         contact = ctx.msg.get_sender_contact()
         addr = contact.addr
         ids = cls.db.execute(
-            'SELECT group_id FROM groups WHERE addr=?', (addr,))
+            'SELECT group_id FROM groups WHERE addr=?', (addr,)).fetchall()
         me = cls.bot.get_contact()
         for gid in ids:
             g = cls.bot.get_chat(gid[0])
@@ -273,7 +274,7 @@ class FacebookBridge(Plugin):
             user = onlogin.user
             if user is not None:
                 threads = [t[0] for t in cls.db.execute(
-                    'SELECT thread_id FROM groups WHERE addr=?', (addr,))]
+                    'SELECT thread_id FROM groups WHERE addr=?', (addr,)).fetchall()]
                 new_threads = set()
                 before = None
                 while True:
@@ -291,7 +292,7 @@ class FacebookBridge(Plugin):
 
         addr = ctx.msg.get_sender_contact().addr
         u = cls.db.execute(
-            'SELECT * FROM users WHERE addr=?', (addr,), 'one')
+            'SELECT * FROM users WHERE addr=?', (addr,)).fetchone()
         if not u:
             cls.bot.get_chat(ctx.msg).send_text(
                 _('You are not logged in'))
@@ -303,13 +304,13 @@ class FacebookBridge(Plugin):
     def process_messages(cls, ctx):
         chat = cls.bot.get_chat(ctx.msg)
         group = cls.db.execute(
-            'SELECT * FROM groups WHERE group_id=?', (chat.id,), 'one')
+            'SELECT * FROM groups WHERE group_id=?', (chat.id,)).fetchone()
         if group is None:
             return
         ctx.processed = True
         addr = ctx.msg.get_sender_contact().addr
         u = cls.db.execute(
-            'SELECT * FROM users WHERE addr=?', (addr,), 'one')
+            'SELECT * FROM users WHERE addr=?', (addr,)).fetchone()
         if u['status'] == Status.DISABLED:
             chat.send_text(
                 _('Your account is disabled, use /fb/enable to enable it.'))
@@ -334,8 +335,15 @@ class FacebookBridge(Plugin):
                 thread_type = ThreadType(g['thread_type'])
                 msg = Message(text) if text else None
                 if filename:
-                    onlogin.user.sendLocalFiles(
-                        [filename], message=msg, thread_id=g['thread_id'], thread_type=thread_type)
+                    if filename.endswith('.aac'):
+                        aac_file = AudioSegment.from_file(filename, 'aac')
+                        filename = filename[:-4]+'.mp4'
+                        aac_file.export(filename, format='mp4')
+                        onlogin.user.sendLocalVoiceClips(
+                            [filename], message=msg, thread_id=g['thread_id'], thread_type=thread_type)
+                    else:
+                        onlogin.user.sendLocalFiles(
+                            [filename], message=msg, thread_id=g['thread_id'], thread_type=thread_type)
                 elif msg:
                     onlogin.user.send(msg, thread_id=g['thread_id'],
                                       thread_type=thread_type)
@@ -353,9 +361,13 @@ class FacebookBridge(Plugin):
                 return
             row = cls.db.execute(
                 'SELECT group_id, thread_type, status FROM groups '
-                'WHERE thread_id=? AND addr=?', (t_id, addr), 'one')
+                'WHERE thread_id=? AND addr=?', (t_id, addr)).fetchone()
             if row is None:
-                t = user.fetchThreadInfo(t_id)[t_id]
+                try:
+                    t = user.fetchThreadInfo(t_id)[t_id]
+                except FBchatException as ex:
+                    cls.bot.logger.error('Failed to fetch Thread: %s', str(ex)[:30])
+                    continue
                 g = cls._create_group(user, t, addr)
                 thread_type = t.type
             else:
@@ -404,10 +416,18 @@ class FacebookBridge(Plugin):
                         names[msg.author] = user.fetchUserInfo(msg.author)[
                             msg.author].name
                     text = '{}:\n{}'.format(names[msg.author], text)
+
+                max_size = cls.cfg.getint('max-size')
+
+                if attachments and max_size == 0:
+                    text += '\n\n' + '\n\n'.join(attachments)
+
                 if text:
                     g.send_text(text)
 
-                max_size = cls.cfg.getint('max-size')
+                if max_size == 0:
+                    return
+
                 for url in attachments:
                     file_name = os.path.basename(url).split('?')[
                         0].split('#')[0].lower()
@@ -445,7 +465,7 @@ class FacebookBridge(Plugin):
             if cls.worker.deactivated.is_set():
                 return
             cls.bot.logger.debug('Checking Facebook')
-            for addr in map(lambda u: u[0], cls.db.execute('SELECT addr FROM users WHERE status=?', (Status.ENABLED,))):
+            for addr in map(lambda u: u[0], cls.db.execute('SELECT addr FROM users WHERE status=?', (Status.ENABLED,)).fetchall()):
                 if cls.worker.deactivated.is_set():
                     return
                 with cls.pool:
@@ -494,24 +514,23 @@ class DBManager:
                 PRIMARY KEY(group_id))'''
             )
 
-    def execute(self, statement, args=(), get='all'):
-        r = self.db.execute(statement, args)
-        return r.fetchall() if get == 'all' else r.fetchone()
+    def execute(self, statement, args=()):
+        return self.db.execute(statement, args)
 
-    def commit(self, statement, args=(), get='all'):
+    def commit(self, statement, args=()):
         with self.db:
-            r = self.db.execute(statement, args)
-            return r.fetchall() if get == 'all' else r.fetchone()
+            return self.db.execute(statement, args)
 
     def insert_user(self, user):
-        self.execute('INSERT OR REPLACE INTO users VALUES (?,?,?,?,?)', user)
+        self.commit('INSERT OR REPLACE INTO users VALUES (?,?,?,?,?)', user)
 
     def insert_group(self, group):
-        self.execute('INSERT INTO groups VALUES (?,?,?,?,?)', group)
+        self.commit('INSERT INTO groups VALUES (?,?,?,?,?)', group)
 
     def delete_user(self, addr):
-        self.execute('DELETE FROM groups WHERE addr=?', (addr,))
-        self.execute('DELETE FROM users WHERE addr=?', (addr,))
+        with self.db:
+            self.db.execute('DELETE FROM groups WHERE addr=?', (addr,))
+            self.db.execute('DELETE FROM users WHERE addr=?', (addr,))
 
     def close(self):
         self.db.close()

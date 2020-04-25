@@ -194,7 +194,9 @@ class MastodonBridge(Plugin):
                 accts = {e.url: '@' + e.acct
                          for e in t.mentions}
                 for a in soup('a', class_='u-url'):
-                    a.string = accts[a['href']]
+                    name = accts.get(a['href'])
+                    if name:
+                        a.string = name
             for br in soup('br'):
                 br.replace_with('\n')
             for p in soup('p'):
@@ -214,7 +216,9 @@ class MastodonBridge(Plugin):
             if t.mentions:
                 accts = {e.url: '@' + e.acct for e in t.mentions}
                 for a in soup('a', class_='u-url'):
-                    a.string = accts[a['href']]
+                    name = accts.get(a['href'])
+                    if name:
+                        a.string = name
             t['content'] = str(soup)
 
         me = cls.bot.get_contact().addr
@@ -227,16 +231,19 @@ class MastodonBridge(Plugin):
             'SELECT * FROM accounts WHERE notifications=? OR settings=? OR toots=?', (chat.id,)*3).fetchone()
         if not acc:
             pv = cls.db.execute(
-                'SELECT api_url, username FROM priv_chats WHERE id=?', (chat.id,))
+                'SELECT api_url, username FROM priv_chats WHERE id=?', (chat.id,)).fetchone()
             if pv:
                 acc = cls.db.execute(
-                    'SELECT * FROM accounts WHERE api_url=? AND username=?', (pv['api_url'], pv['username']))
+                    'SELECT * FROM accounts WHERE api_url=? AND username=?', (pv['api_url'], pv['username'])).fetchone()
         return acc
 
     @classmethod
     def delete_account(cls, acc):
         me = cls.bot.get_contact()
-        for pv in cls.db.execute('SELECT * FROM priv_chats WHERE api_url=? AND username=?', (acc['api_url'], acc['username'])):
+        chats = cls.db.execute(
+            'SELECT * FROM priv_chats WHERE api_url=? AND username=?',
+            (acc['api_url'], acc['username']))
+        for pv in chats:
             cls.bot.get_chat(pv['id']).remove_contact(me)
         cls.bot.get_chat(acc['toots']).remove_contact(me)
         cls.bot.get_chat(acc['notifications']).remove_contact(me)
@@ -264,7 +271,7 @@ class MastodonBridge(Plugin):
                         if not ment:
                             break
                         if max_id is None:
-                            cls.db.execute('UPDATE accounts SET last_notification=? WHERE api_url=? AND username=?', (
+                            cls.db.commit('UPDATE accounts SET last_notification=? WHERE api_url=? AND username=?', (
                                 ment[0].id, acc['api_url'], acc['username']))
                         max_id = ment[-1]
                         for mention in ment:
@@ -289,7 +296,9 @@ class MastodonBridge(Plugin):
                         accts = {e.url: '@'+e.acct
                                  for e in dm.mentions}
                         for a in soup('a', class_='u-url'):
-                            a.string = accts[a['href']]
+                            name = accts.get(a['href'])
+                            if name:
+                                a.string = name
                         for br in soup('br'):
                             br.replace_with('\n')
                         for p in soup('p'):
@@ -302,14 +311,14 @@ class MastodonBridge(Plugin):
                         if pv:
                             g = cls.bot.get_chat(pv['id'])
                             if g is None:
-                                cls.db.execute(
+                                cls.db.commit(
                                     'DELETE FROM priv_chats WHERE id=?', (pv['id'],))
                             else:
                                 g.send_text(text)
                         else:
                             g = cls.bot.create_group(
                                 '🇲 {} ({})'.format(acct, rmprefix(acc['api_url'], 'https://')), [acc['addr']])
-                            cls.db.execute(
+                            cls.db.commit(
                                 'INSERT INTO priv_chats VALUES (?,?,?,?)', (g.id, acct.lower(), acc['api_url'], acc['username']))
 
                             r = requests.get(dm.account.avatar_static)
@@ -359,7 +368,7 @@ class MastodonBridge(Plugin):
         if pv:
             ctx.processed = True
             if len(chat.get_contacts()) == 1:
-                cls.db.execute('DELETE FROM priv_chats WHERE id=?', (chat.id,))
+                cls.db.commit('DELETE FROM priv_chats WHERE id=?', (chat.id,))
             else:
                 ctx.text = '@{} {}'.format(pv['contact'], ctx.text)
                 account = cls.db.execute(
@@ -440,7 +449,7 @@ class MastodonBridge(Plugin):
             return
 
         if acc['status'] != Status.ENABLED:
-            cls.db.execute('UPDATE accounts SET status=? WHERE api_url=? AND username=?',
+            cls.db.commit('UPDATE accounts SET status=? WHERE api_url=? AND username=?',
                            (Status.ENABLED, acc['api_url'], acc['username']))
         chat.send_text(_('Account enabled'))
 
@@ -454,7 +463,7 @@ class MastodonBridge(Plugin):
             return
 
         if acc['status'] != Status.DISABLED:
-            cls.db.execute('UPDATE accounts SET status=? WHERE api_url=? AND username=?',
+            cls.db.commit('UPDATE accounts SET status=? WHERE api_url=? AND username=?',
                            (Status.DISABLED, acc['api_url'], acc['username']))
         chat.send_text(_('Account disabled'))
 
@@ -481,7 +490,7 @@ class MastodonBridge(Plugin):
         else:
             g = cls.bot.create_group(
                 '🇲 {} ({})'.format(ctx.text, rmprefix(acc['api_url'], 'https://')), [acc['addr']])
-            cls.db.execute(
+            cls.db.commit(
                 'INSERT OR REPLACE INTO priv_chats VALUES (?,?,?,?)', (g.id, ctx.text, acc['api_url'], acc['username']))
             m = cls.get_session(acc)
             contact = m.account_search(ctx.text, limit=1)
@@ -771,6 +780,9 @@ class DBManager:
                 PRIMARY KEY(id))''')
 
     def execute(self, statement, args=()):
+        return self.db.execute(statement, args)
+
+    def commit(self, statement, args=()):
         with self.db:
             return self.db.execute(statement, args)
 

@@ -50,6 +50,8 @@ class Admin(Plugin):
                           _('Delete the RSS with the give url from the RSS data base (needs simplebot_rss plugin)'), cls.delrss_cmd),
             PluginCommand('/admin/joinchannel', ['<id>'],
                           _('Join a channel as admin (needs simplebot_groupmaster plugin)'), cls.joinchannel_cmd),
+            PluginCommand('/admin/irc/adduser', ['<addr>'],
+                          _('allow addr to use the IRC bridge'), cls.irc_adduser_cmd),
             PluginCommand('/admin/stats', [], _('Show statistics about the bot'), cls.stats_cmd)]
         cls.bot.add_commands(cls.commands)
 
@@ -170,6 +172,18 @@ class Admin(Plugin):
         RSS.db.execute(
             'DELETE FROM feeds WHERE url=?', (ctx.text,))
         chat.send_text('Feed deleted')
+
+    @classmethod
+    def irc_adduser_cmd(cls, ctx):
+        chat = cls.bot.get_chat(ctx.msg)
+
+        if ctx.msg.get_sender_contact().addr not in cls.cfg['admins'].split():
+            chat.send_text(_('You are not an administrator'))
+            return
+
+        from simplebot_irc import IRCBridge
+        IRCBridge.db.add_user(ctx.text)
+        chat.send_text('User added')
 
     @classmethod
     def joinchannel_cmd(cls, ctx):

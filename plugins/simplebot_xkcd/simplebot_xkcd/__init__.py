@@ -28,14 +28,19 @@ class XKCD(Plugin):
         cls.bot.add_commands(cls.commands)
 
     @classmethod
+    def _send_comic(cls, chat, comic):
+        text = '#{} - {}\n\n{}'.format(
+            comic.number, comic.title, comic.altText)
+        path = comic.download(cls.bot.get_blobdir())
+        cls.bot.send_file(chat, path, text, view_type='image')
+
+    @classmethod
     def xkcd_cmd(cls, ctx):
         comic = xkcd.getComic(
             int(ctx.text)) if ctx.text else xkcd.getRandomComic()
-        cls.bot.get_chat(ctx.msg).send_image(
-            comic.download(cls.bot.get_blobdir()))
+        cls._send_comic(cls.bot.get_chat(ctx.msg), comic)
 
     @classmethod
     def latest_cmd(cls, ctx):
         comic = xkcd.getLatestComic()
-        cls.bot.get_chat(ctx.msg).send_image(
-            comic.download(cls.bot.get_blobdir()))
+        cls._send_comic(cls.bot.get_chat(ctx.msg), comic)

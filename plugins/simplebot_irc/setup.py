@@ -5,8 +5,8 @@ import os
 from setuptools import setup
 
 
-MODULE_NAME = 'simplebot_facebook'
-CLASS_NAME = 'FacebookBridge'
+MODULE_NAME = 'simplebot_irc'
+CLASS_NAME = 'IRCBridge'
 with open(os.path.join(MODULE_NAME, '__init__.py'), 'rt', encoding='utf8') as fh:
     source = fh.read()
 PLUGIN_NAME = re.search(r'name = \'(.*?)\'', source, re.M).group(1)
@@ -31,7 +31,7 @@ setup(
     ],
     keywords='deltachat simplebot plugin',
     packages=[MODULE_NAME],
-    install_requires=['simplebot', 'fbchat', 'requests', 'pydub'],
+    install_requires=['simplebot', 'irc'],
     python_requires='>=3.5',
     entry_points={
         'simplebot.plugins': '{} = {}:{}'.format(PLUGIN_NAME, MODULE_NAME, CLASS_NAME)
