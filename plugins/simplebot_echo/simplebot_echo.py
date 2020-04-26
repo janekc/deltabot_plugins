@@ -2,7 +2,7 @@
 from deltabot.hookspec import deltabot_hookimpl
 
 
-version = '0.5.0'
+version = '1.0.0'
 
 
 @deltabot_hookimpl
