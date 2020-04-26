@@ -1,6 +1,12 @@
 Changelog
 *********
 
+0.5.0
+-----
+
+- ported to new deltabot api
+
+
 0.4.0
 -----
 
