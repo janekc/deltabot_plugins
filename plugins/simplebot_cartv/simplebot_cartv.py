@@ -17,10 +17,10 @@ channels = ['Cubavision', 'Telerebelde', 'Educativo', 'Educativo 2',
 
 @deltabot_hookimpl
 def deltabot_init(bot):
-    bot.commands.register(name="/cartv", func=process_cartv_cmd)
+    bot.commands.register(name="/cartv", func=cmd_cartv)
 
 
-def process_cartv_cmd(cmd):
+def cmd_cartv(cmd):
     """Muestra la cartelera de la TV cubana.
 
     Muestra la cartelera para el canal dado o la cartelera para todos

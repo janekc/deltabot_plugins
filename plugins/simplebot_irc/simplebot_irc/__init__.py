@@ -23,7 +23,10 @@ class AccountListener:
         if channel:
             me = dbot.self_contact()
             if me == contact or len(chat.get_contacts()) <= 1:
-                remove_cchat(chat.id, channel)
+                db.remove_cchat(chat.id)
+                if next(db.get_cchats(channel), None) is None:
+                    db.remove_channel(channel)
+                    irc_bridge.leave_channel(channel)
 
 
 @deltabot_hookimpl
@@ -39,21 +42,20 @@ def deltabot_init(bot):
     irc_bridge = IRCBot(host, port, nick, db, bot)
     Thread(target=run_irc, daemon=True).start()
 
-    bot.filters.register(name=__name__, func=process_messages)
+    bot.filters.register(name=__name__, func=filter_messages)
 
-    register_cmd('/join', '/irc_join', process_join_cmd)
-    register_cmd('/remove', '/irc_remove', process_remove_cmd)
-    register_cmd('/topic', '/irc_topic', process_topic_cmd)
-    register_cmd('/members', '/irc_members', process_members_cmd)
-    register_cmd('/nick', '/irc_nick', process_nick_cmd)
+    register_cmd('/join', '/irc_join', cmd_join)
+    register_cmd('/remove', '/irc_remove', cmd_remove)
+    register_cmd('/topic', '/irc_topic', cmd_topic)
+    register_cmd('/members', '/irc_members', cmd_members)
+    register_cmd('/nick', '/irc_nick', cmd_nick)
 
     bot.account.add_account_plugin(AccountListener())
 
 
 # ======== Filters ===============
 
-
-def process_messages(msg):
+def filter_messages(msg):
     chan = db.get_channel_by_gid(msg.chat.id)
     if not chan:
         return
@@ -72,8 +74,7 @@ def process_messages(msg):
 
 # ======== Commands ===============
 
-
-def process_topic_cmd(cmd):
+def cmd_topic(cmd):
     """Show channel topic.
     """
     chan = db.get_channel_by_gid(cmd.message.chat.id)
@@ -82,7 +83,7 @@ def process_topic_cmd(cmd):
     return 'Topic:\n{}'.format(irc_bridge.get_topic(chan))
 
 
-def process_members_cmd(cmd):
+def cmd_members(cmd):
     """Show list of channel members.
     """
     me = cmd.bot.self_contact()
@@ -103,7 +104,7 @@ def process_members_cmd(cmd):
     return 'Members:\n{}'.format(members)
 
 
-def process_nick_cmd(cmd):
+def cmd_nick(cmd):
     """Set your nick or display your current nick if no new nick is given.
     """
     addr = cmd.message.get_sender_contact().addr
@@ -119,7 +120,7 @@ def process_nick_cmd(cmd):
     return '** Nick: {}'.format(db.get_nick(addr))
 
 
-def process_join_cmd(cmd):
+def cmd_join(cmd):
     """Join the given channel.
     """
     sender = cmd.message.get_sender_contact()
@@ -154,7 +155,7 @@ def process_join_cmd(cmd):
     g.send_text(text)
 
 
-def process_remove_cmd(cmd):
+def cmd_remove(cmd):
     """Remove the member with the given nick from the channel, if no nick is given remove yourself.
     """
     sender = cmd.message.get_sender_contact()
@@ -219,13 +220,6 @@ def getdefault(key, value):
         dbot.set(key, value, scope=__name__)
         val = value
     return val
-
-
-def remove_cchat(chat_id, channel):
-    db.remove_cchat(chat_id)
-    if next(db.get_cchats(channel), None) is None:
-        db.remove_channel(channel)
-        irc_bridge.leave_channel(channel)
 
 
 def get_cchats(channel):

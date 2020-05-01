@@ -1,45 +1,53 @@
 # -*- coding: utf-8 -*-
 import os
 
+from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
-from simplebot_reversi.database import DBManager
+from .database import DBManager
 import simplebot_reversi.reversi as reversi
 
 
 version = '1.0.0'
 
 
+# ======== Hooks ===============
+
+class AccountListener:
+    @account_hookimpl
+    def ac_member_removed(self, chat, contact, message):
+        game = db.get_game_by_gid(chat.id)
+        if game:
+            me = dbot.self_contact()
+            p1, p2 = map(dbot.get_contact, game['players'].split(','))
+            if contact in (me, p1, p2):
+                db.delete_game(game['players'])
+                try:
+                    chat.remove_contact(me)
+                except ValueError:
+                    pass
+
+
 @deltabot_hookimpl
 def deltabot_init(bot):
-    global db
-    plugin_dir = bot.get_dir(__name__)
-    db = DBManager(os.path.join(plugin_dir, 'reversi.db'))
+    global db, dbot
+    dbot = bot
 
-    bot.filters.register(name='reversi', func=process_messages)
+    db = DBManager(os.path.join(get_dir(), 'sqlite.db'))
 
-    bot.commands.register(name='/reversi/play', func=process_play_cmd)
-    bot.commands.register(
-        name='/reversi/surrender', func=process_surrender_cmd)
-    bot.commands.register(name='/reversi/new', func=process_new_cmd)
+    bot.filters.register(name=__name__, func=filter_messages)
+
+    register_cmd('/play', '/reversi_play', cmd_play)
+    register_cmd('/surrender', '/reversi_surrender', cmd_surrender)
+    register_cmd('/new', '/reversi_new', cmd_new)
 
 
-def process_messages(bot, msg):
+# ======== Filters ===============
+
+def filter_messages(msg):
     """Process move coordinates in Reversi game groups
     """
     game = db.get_game_by_gid(msg.chat.id)
-    if game is None:
-        return
-    p1, p2 = map(bot.get_contact, game['players'].split(','))
-    me = bot.self_contact()
-    contacts = msg.chat.get_contacts()
-    if me not in contacts or p1 not in contacts or p2 not in contacts:
-        db.delete_game(game['players'])
-        try:
-            msg.chat.remove_contact(me)
-        except ValueError:
-            pass
-        return
-    if game['board'] is None or len(msg.text) != 2:
+    if game is None or game['board'] is None or len(msg.text) != 2:
         return
 
     b = reversi.Board(game['board'])
@@ -54,7 +62,9 @@ def process_messages(bot, msg):
             return '❌ Invalid move!'
 
 
-def process_play_cmd(cmd):
+# ======== Commands ===============
+
+def cmd_play(cmd):
     """Invite a friend to play.
 
     Example: `/reversi/play friend@example.com`
@@ -95,7 +105,7 @@ def process_play_cmd(cmd):
         chat.send_text('You already have a game group with {}'.format(p2))
 
 
-def process_surrender_cmd(cmd):
+def cmd_surrender(cmd):
     """End the game in the group it is sent.
     """
     game = db.get_game_by_gid(cmd.message.chat.id)
@@ -110,7 +120,7 @@ def process_surrender_cmd(cmd):
         return '🏳️ Game Over.\n{} surrenders.'.format(loser)
 
 
-def process_new_cmd(cmd):
+def cmd_new(cmd):
     """Start a new game in the current game group.
     """
     sender = cmd.message.get_sender_contact().addr
@@ -130,6 +140,8 @@ def process_new_cmd(cmd):
     else:
         return 'There are a game running already'
 
+
+# ======== Utilities ===============
 
 def run_turn(gid):
     g = db.get_game_by_gid(gid)
@@ -161,3 +173,17 @@ def run_turn(gid):
                 winner = '{} {}'.format(disk, p2)
             return '🏆 Game over.\n{} Wins!!!\n\n{}\n\n{}'.format(
                 winner, b, b.get_score())
+
+
+def get_dir():
+    path = os.path.join(os.path.dirname(dbot.account.db_path), __name__)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
+
+def register_cmd(name, alt_name, func):
+    try:
+        dbot.commands.register(name=name, func=func)
+    except ValueError:
+        dbot.commands.register(name=alt_name, func=func)

@@ -12,10 +12,10 @@ LANGUAGES = '\n'.join(
 
 @deltabot_hookimpl
 def deltabot_init(bot):
-    bot.commands.register(name="/tr", func=process_tr_cmd)
+    bot.commands.register(name="/tr", func=cmd_tr)
 
 
-def process_tr_cmd(cmd):
+def cmd_tr(cmd):
     """Translate text.
 
     You need to pass origin and destination language. If you send the

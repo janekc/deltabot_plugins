@@ -10,10 +10,10 @@ version = '1.0.0'
 
 @deltabot_hookimpl
 def deltabot_init(bot):
-    bot.commands.register(name="/quote", func=process_quote_cmd)
+    bot.commands.register(name="/quote", func=cmd_quote)
 
 
-def process_quote_cmd(cmd):
+def cmd_quote(cmd):
     """Get Wikiquote quotes.
 
     Search in Wikiquote or get the quote of the day if no text is given.

@@ -7,10 +7,10 @@ version = '1.0.0'
 
 @deltabot_hookimpl
 def deltabot_init(bot):
-    bot.commands.register(name="/echo", func=process_echo_cmd)
+    bot.commands.register(name="/echo", func=cmd_echo)
 
 
-def process_echo_cmd(cmd):
+def cmd_echo(cmd):
     """Echoes back received text.
 
     To use it you can simply send a message starting with
