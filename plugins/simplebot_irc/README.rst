@@ -1,4 +1,4 @@
 IRC/DeltaChat Bridge
 ====================
 
-A IRC/DeltaChat bridge plugin for SimpleBot.
+An IRC/DeltaChat bridge plugin for SimpleBot.

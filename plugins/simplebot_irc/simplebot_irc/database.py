@@ -45,10 +45,10 @@ class DBManager:
         return r is not None
 
     def add_channel(self, name):
-        self.commit('INSERT INTO channels VALUES (?)', (name,))
+        self.commit('INSERT INTO channels VALUES (?)', (name.lower(),))
 
     def remove_channel(self, name):
-        self.commit('DELETE FROM channels WHERE name=?', (name,))
+        self.commit('DELETE FROM channels WHERE name=?', (name.lower(),))
 
     def get_channel_by_gid(self, gid):
         r = self.db.execute(

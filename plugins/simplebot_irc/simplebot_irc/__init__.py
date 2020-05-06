@@ -31,7 +31,7 @@ class AccountListener:
 
 @deltabot_hookimpl
 def deltabot_init(bot):
-    global db, cfg, dbot, irc_bridge
+    global dbot, db, irc_bridge
     dbot = bot
 
     db = DBManager(os.path.join(get_dir(), 'sqlite.db'))
@@ -56,6 +56,8 @@ def deltabot_init(bot):
 # ======== Filters ===============
 
 def filter_messages(msg):
+    """Process messages sent to an IRC channel.
+    """
     chan = db.get_channel_by_gid(msg.chat.id)
     if not chan:
         return
@@ -75,7 +77,7 @@ def filter_messages(msg):
 # ======== Commands ===============
 
 def cmd_topic(cmd):
-    """Show channel topic.
+    """Show IRC channel topic.
     """
     chan = db.get_channel_by_gid(cmd.message.chat.id)
     if not chan:
@@ -84,7 +86,7 @@ def cmd_topic(cmd):
 
 
 def cmd_members(cmd):
-    """Show list of channel members.
+    """Show list of IRC channel members.
     """
     me = cmd.bot.self_contact()
 
@@ -92,7 +94,7 @@ def cmd_members(cmd):
     if not chan:
         return 'This is not an IRC channel'
 
-    members = ''
+    members = 'Members:\n'
     for g in get_cchats(chan):
         for c in g.get_contacts():
             if c != me:
@@ -101,19 +103,18 @@ def cmd_members(cmd):
     for m in irc_bridge.get_members(chan):
         members += '• {}[irc]\n'.format(m)
 
-    return 'Members:\n{}'.format(members)
+    return members
 
 
 def cmd_nick(cmd):
-    """Set your nick or display your current nick if no new nick is given.
+    """Set your IRC nick or display your current nick if no new nick is given.
     """
     addr = cmd.message.get_sender_contact().addr
     new_nick = ' '.join(cmd.payload.split())
     if new_nick:
         if not nick_re.match(new_nick):
             return '** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters'
-        addr = db.get_addr(new_nick)
-        if addr:
+        if db.get_addr(new_nick):
             return '** Nick already taken'
         db.set_nick(addr, new_nick)
         return '** Nick: {}'.format(new_nick)
@@ -121,11 +122,13 @@ def cmd_nick(cmd):
 
 
 def cmd_join(cmd):
-    """Join the given channel.
+    """Join the given IRC channel.
     """
     sender = cmd.message.get_sender_contact()
-    if not cmd.payload or not db.is_whitelisted(sender.addr):
+    if not cmd.payload:
         return
+    if not db.is_whitelisted(cmd.payload):
+        return "That channel isn't in the whitelist"
 
     if db.channel_exists(cmd.payload):
         chats = get_cchats(cmd.payload)
@@ -156,7 +159,7 @@ def cmd_join(cmd):
 
 
 def cmd_remove(cmd):
-    """Remove the member with the given nick from the channel, if no nick is given remove yourself.
+    """Remove the member with the given nick from the IRC channel, if no nick is given remove yourself.
     """
     sender = cmd.message.get_sender_contact()
 
