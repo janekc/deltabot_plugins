@@ -8,7 +8,7 @@ class DBManager:
         with self.db:
             self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS channels
-                (name TEXT PRIMARY KEY)''')
+                (id TEXT PRIMARY KEY)''')
             self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS cchats
                 (id INTEGER PRIMARY KEY,
@@ -19,36 +19,25 @@ class DBManager:
                 nick TEXT NOT NULL)''')
             self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS whitelist
-                (addr TEXT PRIMARY KEY)''')
+                (channel TEXT PRIMARY KEY)''')
 
-    def add_user(self, addr):
-        self.commit(
-            'INSERT INTO whitelist VALUES (?)', (addr,))
+    def execute(self, statement, args=()):
+        return self.db.execute(statement, args)
 
-    def remove_user(self, addr):
-        self.commit(
-            'DELETE FROM whitelist WHERE addr=?', (addr,))
+    def commit(self, statement, args=()):
+        with self.db:
+            return self.db.execute(statement, args)
 
-    def is_whitelisted(self, addr):
-        rows = self.execute('SELECT addr FROM whitelist').fetchall()
-        if not rows:
-            return True
-        for r in rows:
-            if r[0] == addr:
-                return True
-        return False
+    def close(self):
+        self.db.close()
+
+    ###### channels ########
 
     def channel_exists(self, name):
         name = name.lower()
         r = self.execute(
-            'SELECT name FROM channels WHERE name=?', (name,)).fetchone()
+            'SELECT * FROM channels WHERE id=?', (name,)).fetchone()
         return r is not None
-
-    def add_channel(self, name):
-        self.commit('INSERT INTO channels VALUES (?)', (name.lower(),))
-
-    def remove_channel(self, name):
-        self.commit('DELETE FROM channels WHERE name=?', (name.lower(),))
 
     def get_channel_by_gid(self, gid):
         r = self.db.execute(
@@ -56,8 +45,16 @@ class DBManager:
         return r and r[0]
 
     def get_channels(self):
-        for r in self.db.execute('SELECT name FROM channels'):
+        for r in self.db.execute('SELECT id FROM channels'):
             yield r[0]
+
+    def add_channel(self, name):
+        self.commit('INSERT INTO channels VALUES (?)', (name.lower(),))
+
+    def remove_channel(self, name):
+        self.commit('DELETE FROM channels WHERE id=?', (name.lower(),))
+
+    ###### cchats ########
 
     def get_cchats(self, channel):
         for r in self.db.execute('SELECT id FROM cchats WHERE channel=?',
@@ -70,10 +67,7 @@ class DBManager:
     def remove_cchat(self, gid):
         self.commit('DELETE FROM cchats WHERE id=?', (gid,))
 
-    def get_addr(self, nick):
-        r = self.execute(
-            'SELECT addr FROM nicks WHERE nick=?', (nick,)).fetchone()
-        return r and r[0]
+    ###### nicks ########
 
     def get_nick(self, addr):
         r = self.execute(
@@ -93,12 +87,26 @@ class DBManager:
     def set_nick(self, addr, nick):
         self.commit('REPLACE INTO nicks VALUES (?,?)', (addr, nick))
 
-    def execute(self, statement, args=()):
-        return self.db.execute(statement, args)
+    def get_addr(self, nick):
+        r = self.execute(
+            'SELECT addr FROM nicks WHERE nick=?', (nick,)).fetchone()
+        return r and r[0]
 
-    def commit(self, statement, args=()):
-        with self.db:
-            return self.db.execute(statement, args)
+    ###### whitelist ########
 
-    def close(self):
-        self.db.close()
+    def is_whitelisted(self, name):
+        rows = self.execute('SELECT channel FROM whitelist').fetchall()
+        if not rows:
+            return True
+        for r in rows:
+            if r[0] == name:
+                return True
+        return False
+
+    def add_to_whitelist(self, name):
+        self.commit(
+            'INSERT INTO whitelist VALUES (?)', (name,))
+
+    def remove_from_whitelist(self, name):
+        self.commit(
+            'DELETE FROM whitelist WHERE id=?', (name,))

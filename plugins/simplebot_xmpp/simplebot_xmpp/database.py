@@ -9,7 +9,7 @@ class DBManager:
         with self.db:
             self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS channels
-                (jid TEXT PRIMARY KEY)''')
+                (id TEXT PRIMARY KEY)''')
             self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS cchats
                 (id INTEGER PRIMARY KEY,
@@ -20,7 +20,7 @@ class DBManager:
                 nick TEXT NOT NULL)''')
             self.db.execute(
                 '''CREATE TABLE IF NOT EXISTS whitelist
-                (jid TEXT PRIMARY KEY)''')
+                (channel TEXT PRIMARY KEY)''')
 
     def execute(self, statement, args=()):
         return self.db.execute(statement, args)
@@ -37,7 +37,7 @@ class DBManager:
     def channel_exists(self, jid):
         jid = jid.lower()
         r = self.execute(
-            'SELECT * FROM channels WHERE jid=?', (jid,)).fetchone()
+            'SELECT * FROM channels WHERE id=?', (jid,)).fetchone()
         return r is not None
 
     def get_channel_by_gid(self, gid):
@@ -46,21 +46,24 @@ class DBManager:
         return r and r[0]
 
     def get_channels(self):
-        for r in self.db.execute('SELECT jid FROM channels'):
+        for r in self.db.execute('SELECT id FROM channels'):
             yield r[0]
 
     def add_channel(self, jid):
         self.commit('INSERT INTO channels VALUES (?)', (jid.lower(),))
 
     def remove_channel(self, jid):
-        self.commit('DELETE FROM channels WHERE jid=?', (jid.lower(),))
+        self.commit('DELETE FROM channels WHERE id=?', (jid.lower(),))
 
-    ###### ccchats ########
+    ###### cchats ########
 
     def get_cchats(self, channel):
         for r in self.db.execute('SELECT id FROM cchats WHERE channel=?',
                                  (channel.lower(),)).fetchall():
             yield r[0]
+
+    def add_cchat(self, gid, channel):
+        self.commit('INSERT INTO cchats VALUES (?,?)', (gid, channel))
 
     def remove_cchat(self, gid):
         self.commit('DELETE FROM cchats WHERE id=?', (gid,))
@@ -93,7 +96,7 @@ class DBManager:
     ###### whitelist ########
 
     def is_whitelisted(self, jid):
-        rows = self.execute('SELECT jid FROM whitelist').fetchall()
+        rows = self.execute('SELECT channel FROM whitelist').fetchall()
         if not rows:
             return True
         for r in rows:
@@ -107,4 +110,4 @@ class DBManager:
 
     def remove_from_whitelist(self, jid):
         self.commit(
-            'DELETE FROM whitelist WHERE jid=?', (jid,))
+            'DELETE FROM whitelist WHERE channel=?', (jid,))
