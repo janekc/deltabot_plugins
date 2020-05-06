@@ -58,7 +58,7 @@ def deltabot_init(bot):
 # ======== Filters ===============
 
 def filter_messages(msg):
-    """Process messages sent to an XMPP channel.
+    """Process messages sent to XMPP channels.
     """
     chan = db.get_channel_by_gid(msg.chat.id)
     if not chan:
