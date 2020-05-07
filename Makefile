@@ -1,5 +1,5 @@
 .PHONY: all
-all: echo friends groupmaster help tictactoe translator webgrabber wikiquote xkcd admin shortcuts rss facebook mastodon avatar meme cartv cuba_weather xmpp chess reversi irc
+all: echo friends groupmaster tictactoe translator webgrabber wikiquote xkcd admin shortcuts rss facebook mastodon avatar meme cartv cuba_weather xmpp chess reversi irc
 
 .PHONY: echo
 echo:
@@ -12,10 +12,6 @@ friends:
 .PHONY: groupmaster
 groupmaster:
 	echo y | pip uninstall simplebot_groupmaster; pip install plugins/simplebot_groupmaster
-
-.PHONY: help
-help:
-	echo y | pip uninstall simplebot_help; pip install plugins/simplebot_help
 
 .PHONY: tictactoe
 tictactoe:
