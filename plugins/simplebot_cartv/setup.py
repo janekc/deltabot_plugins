@@ -17,7 +17,7 @@ if __name__ == "__main__":
         long_description = fh.read()
     with open('CHANGELOG.rst') as fh:
         long_description += fh.read()
-    with open('LICENSE.rst') as fh:
+    with open('LICENSE') as fh:
         long_description += fh.read()
 
     setup(
