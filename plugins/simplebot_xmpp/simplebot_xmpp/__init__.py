@@ -40,7 +40,8 @@ def deltabot_init(bot):
     password = bot.get('password', scope=__name__)
     nick = getdefault('nick', 'SimpleBot')
 
-    assert None not in (jid, password), 'Missing "jid" or "password" settings'
+    assert jid is not None, 'Missing "{}/jid" setting'.format(__name__)
+    assert password is not None, 'Missing "{}/password" setting'.format(__name__)
 
     Thread(target=listen_to_xmpp,
            args=(jid, password, nick, db, bot), daemon=True).start()
