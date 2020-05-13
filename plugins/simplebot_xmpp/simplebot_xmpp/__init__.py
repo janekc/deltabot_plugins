@@ -45,7 +45,7 @@ def deltabot_init(bot):
 
 
 @deltabot_hookimpl
-def deltabot_start(self, bot):
+def deltabot_start(bot):
     global db
     db = DBManager(os.path.join(get_dir(bot), 'sqlite.db'))
 
