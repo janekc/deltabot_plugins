@@ -51,7 +51,7 @@ def deltabot_start(bot):
 
     jid = bot.get('jid', scope=__name__)
     password = bot.get('password', scope=__name__)
-    nick = getdefault('nick', 'SimpleBot')
+    nick = getdefault('nick', 'DC-Bridge')
 
     assert jid is not None, 'Missing "{}/jid" setting'.format(__name__)
     assert password is not None, 'Missing "{}/password" setting'.format(__name__)
