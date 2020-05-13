@@ -31,10 +31,23 @@ class AccountListener:
 
 @deltabot_hookimpl
 def deltabot_init(bot):
-    global db, dbot, irc_bridge
+    global dbot
     dbot = bot
 
-    db = DBManager(os.path.join(get_dir(), 'sqlite.db'))
+    bot.filters.register(name=__name__, func=filter_messages)
+
+    register_cmd('/join', '/xmpp_join', cmd_join)
+    register_cmd('/remove', '/xmpp_remove', cmd_remove)
+    register_cmd('/members', '/xmpp_members', cmd_members)
+    register_cmd('/nick', '/xmpp_nick', cmd_nick)
+
+    bot.account.add_account_plugin(AccountListener())
+
+
+@deltabot_hookimpl
+def deltabot_start(self, bot):
+    global db
+    db = DBManager(os.path.join(get_dir(bot), 'sqlite.db'))
 
     jid = bot.get('jid', scope=__name__)
     password = bot.get('password', scope=__name__)
@@ -45,15 +58,6 @@ def deltabot_init(bot):
 
     Thread(target=listen_to_xmpp,
            args=(jid, password, nick, db, bot), daemon=True).start()
-
-    bot.filters.register(name=__name__, func=filter_messages)
-
-    register_cmd('/join', '/xmpp_join', cmd_join)
-    register_cmd('/remove', '/xmpp_remove', cmd_remove)
-    register_cmd('/members', '/xmpp_members', cmd_members)
-    register_cmd('/nick', '/xmpp_nick', cmd_nick)
-
-    bot.account.add_account_plugin(AccountListener())
 
 
 # ======== Filters ===============
@@ -228,8 +232,8 @@ def getdefault(key, value):
     return val
 
 
-def get_dir():
-    path = os.path.join(os.path.dirname(dbot.account.db_path), __name__)
+def get_dir(bot):
+    path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
     return path
