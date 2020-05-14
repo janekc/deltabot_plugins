@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from threading import Thread
+from threading import Thread, Event
 import asyncio
 import os
 import re
@@ -17,22 +17,32 @@ nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
 # ======== Hooks ===============
 
 class AccountListener:
+    def __init__(self, db, bot, xmpp_bridge):
+        self.db = db
+        self.bot = bot
+        self.xmpp_bridge = xmpp_bridge
+
     @account_hookimpl
     def ac_member_removed(self, chat, contact, message):
-        channel = db.get_channel_by_gid(chat.id)
+        channel = self.db.get_channel_by_gid(chat.id)
         if channel:
-            me = dbot.self_contact()
+            self.bot.logger.debug(
+                'XMPP member removed: contact=%r, msg=%r',
+                contact.addr, message)
+            me = self.bot.self_contact
             if me == contact or len(chat.get_contacts()) <= 1:
-                db.remove_cchat(chat.id)
-                if next(db.get_cchats(channel), None) is None:
-                    db.remove_channel(channel)
-                    xmpp_bridge.leave_channel(channel)
+                self.db.remove_cchat(chat.id)
+                if next(self.db.get_cchats(channel), None) is None:
+                    self.db.remove_channel(channel)
+                    self.xmpp_bridge.leave_channel(channel)
+            message.mark_seen()
 
 
 @deltabot_hookimpl
 def deltabot_init(bot):
-    global dbot
+    global dbot, db
     dbot = bot
+    db = DBManager(os.path.join(get_dir(bot), 'sqlite.db'))
 
     bot.filters.register(name=__name__, func=filter_messages)
 
@@ -41,14 +51,9 @@ def deltabot_init(bot):
     register_cmd('/members', '/xmpp_members', cmd_members)
     register_cmd('/nick', '/xmpp_nick', cmd_nick)
 
-    bot.account.add_account_plugin(AccountListener())
-
 
 @deltabot_hookimpl
 def deltabot_start(bot):
-    global db
-    db = DBManager(os.path.join(get_dir(bot), 'sqlite.db'))
-
     jid = bot.get('jid', scope=__name__)
     password = bot.get('password', scope=__name__)
     nick = getdefault('nick', 'DC-Bridge')
@@ -56,8 +61,12 @@ def deltabot_start(bot):
     assert jid is not None, 'Missing "{}/jid" setting'.format(__name__)
     assert password is not None, 'Missing "{}/password" setting'.format(__name__)
 
+    bridge_init = Event()
     Thread(target=listen_to_xmpp,
-           args=(jid, password, nick, db, bot), daemon=True).start()
+           args=(jid, password, nick, bridge_init), daemon=True).start()
+    bridge_init.wait()
+
+    bot.account.add_account_plugin(AccountListener(db, bot, xmpp_bridge))
 
 
 # ======== Filters ===============
@@ -75,6 +84,7 @@ def filter_messages(msg):
     nick = db.get_nick(msg.get_sender_contact().addr)
     text = '{}[dc]:\n{}'.format(nick, msg.text)
 
+    dbot.logger.debug('Sending message to XMPP: %r', text)
     xmpp_bridge.send_message(chan, text, mtype='groupchat')
     for g in get_cchats(chan):
         if g.id != msg.chat.id:
@@ -86,7 +96,7 @@ def filter_messages(msg):
 def cmd_members(cmd):
     """Show list of XMPP channel members.
     """
-    me = cmd.bot.self_contact()
+    me = cmd.bot.self_contact
 
     chan = db.get_channel_by_gid(cmd.message.chat.id)
     if not chan:
@@ -199,17 +209,19 @@ def cmd_remove(cmd):
 
 # ======== Utilities ===============
 
-def listen_to_xmpp(jid, password, nick, db, bot):
+def listen_to_xmpp(jid, password, nick, bridge_initialized):
     global xmpp_bridge
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    xmpp_bridge = XMPPBot(jid, password, nick, db, bot)
+    xmpp_bridge = XMPPBot(jid, password, nick, db, dbot)
+    bridge_initialized.set()
     while True:
         try:
+            dbot.logger.info('Starting XMPP bridge')
             xmpp_bridge.connect()
             xmpp_bridge.process(forever=False)
         except Exception as ex:
-            bot.logger.exception(ex)
+            dbot.logger.exception(ex)
 
 
 def get_cchats(channel):
