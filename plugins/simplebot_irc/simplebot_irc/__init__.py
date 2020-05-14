@@ -21,7 +21,7 @@ class AccountListener:
     def ac_member_removed(self, chat, contact, message):
         channel = db.get_channel_by_gid(chat.id)
         if channel:
-            me = dbot.self_contact()
+            me = dbot.self_contact
             if me == contact or len(chat.get_contacts()) <= 1:
                 db.remove_cchat(chat.id)
                 if next(db.get_cchats(channel), None) is None:
@@ -88,7 +88,7 @@ def cmd_topic(cmd):
 def cmd_members(cmd):
     """Show list of IRC channel members.
     """
-    me = cmd.bot.self_contact()
+    me = cmd.bot.self_contact
 
     chan = db.get_channel_by_gid(cmd.message.chat.id)
     if not chan:

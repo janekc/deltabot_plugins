@@ -17,7 +17,7 @@ class AccountListener:
     def ac_member_removed(self, chat, contact, message):
         game = db.get_game_by_gid(chat.id)
         if game:
-            me = dbot.self_contact()
+            me = dbot.self_contact
             p1, p2 = map(dbot.get_contact, game['players'].split(','))
             if contact in (me, p1, p2):
                 db.delete_game(game['players'])
@@ -83,7 +83,7 @@ def cmd_play(cmd):
     # fix bug caused by previous version
     if g is not None:
         chat = cmd.bot.get_chat(g['gid'])
-        me = cmd.bot.self_contact()
+        me = cmd.bot.self_contact
         contacts = cmd.message.chat.get_contacts()
         c1, c2 = cmd.bot.get_contact(p1), cmd.bot.get_contact(p2)
         if me not in contacts or c1 not in contacts or c2 not in contacts:
