@@ -11,36 +11,36 @@ from deltabot.hookspec import deltabot_hookimpl
 
 
 version = '1.0.0'
+dbot = None
+db = None
+irc_bridge = None
 nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
 
 
 # ======== Hooks ===============
 
 class AccountListener:
+    def __init__(self, db, bot, irc_bridge):
+        self.db = db
+        self.bot = bot
+        self.irc_bridge = irc_bridge
+
     @account_hookimpl
     def ac_member_removed(self, chat, contact, message):
-        channel = db.get_channel_by_gid(chat.id)
+        channel = self.db.get_channel_by_gid(chat.id)
         if channel:
-            me = dbot.self_contact
+            me = self.dbot.self_contact
             if me == contact or len(chat.get_contacts()) <= 1:
-                db.remove_cchat(chat.id)
-                if next(db.get_cchats(channel), None) is None:
-                    db.remove_channel(channel)
-                    irc_bridge.leave_channel(channel)
+                self.db.remove_cchat(chat.id)
+                if next(self.db.get_cchats(channel), None) is None:
+                    self.db.remove_channel(channel)
+                    self.irc_bridge.leave_channel(channel)
 
 
 @deltabot_hookimpl
 def deltabot_init(bot):
-    global dbot, db, irc_bridge
+    global dbot
     dbot = bot
-
-    db = DBManager(os.path.join(get_dir(), 'sqlite.db'))
-
-    nick = getdefault('nick', 'SimpleBot')
-    host = getdefault('host', 'irc.freenode.net')
-    port = int(getdefault('port', '6667'))
-    irc_bridge = IRCBot(host, port, nick, db, bot)
-    Thread(target=run_irc, daemon=True).start()
 
     bot.filters.register(name=__name__, func=filter_messages)
 
@@ -50,7 +50,20 @@ def deltabot_init(bot):
     register_cmd('/members', '/irc_members', cmd_members)
     register_cmd('/nick', '/irc_nick', cmd_nick)
 
-    bot.account.add_account_plugin(AccountListener())
+
+@deltabot_hookimpl
+def deltabot_start(bot):
+    global db, irc_bridge
+
+    db = get_db()
+
+    nick = getdefault('nick', 'SimpleBot')
+    host = getdefault('host', 'irc.freenode.net')
+    port = int(getdefault('port', '6667'))
+    irc_bridge = IRCBot(host, port, nick, db, bot)
+    Thread(target=run_irc, daemon=True).start()
+
+    bot.account.add_account_plugin(AccountListener(db, bot, irc_bridge))
 
 
 # ======== Filters ===============
@@ -230,8 +243,8 @@ def get_cchats(channel):
         yield dbot.get_chat(gid)
 
 
-def get_dir():
+def get_db():
     path = os.path.join(os.path.dirname(dbot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
-    return path
+    return DBManager(os.path.join(path, 'sqlite.db'))
