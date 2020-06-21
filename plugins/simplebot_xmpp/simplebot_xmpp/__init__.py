@@ -11,6 +11,9 @@ from deltabot.hookspec import deltabot_hookimpl
 
 
 version = '1.0.0'
+dbot = None
+db = None
+xmpp_bridge = None
 nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
 
 
