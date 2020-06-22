@@ -1,26 +1,38 @@
 # -*- coding: utf-8 -*-
 import os
 
+from .database import DBManager
 from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
-from .database import DBManager
 import simplebot_reversi.reversi as reversi
+# typing
+from typing import Optional, Callable
+from deltabot import DeltaBot
+from deltabot.commands import IncomingCommand
+from deltachat import Chat, Contact, Message
+# ===
 
 
 version = '1.0.0'
+db: DBManager = None
+dbot: DeltaBot = None
 
 
 # ======== Hooks ===============
 
 class AccountListener:
+    def __init__(self, db: DBManager, bot: DeltaBot) -> None:
+        self.db = db
+        self.bot = bot
+
     @account_hookimpl
-    def ac_member_removed(self, chat, contact, message):
-        game = db.get_game_by_gid(chat.id)
+    def ac_member_removed(self, chat: Chat, contact: Contact, message: Message) -> None:
+        game = self.db.get_game_by_gid(chat.id)
         if game:
-            me = dbot.self_contact
-            p1, p2 = map(dbot.get_contact, game['players'].split(','))
-            if contact in (me, p1, p2):
-                db.delete_game(game['players'])
+            me = self.bot.self_contact
+            p1, p2 = game['p1'], game['p2']
+            if contact.addr in (me.addr, p1, p2):
+                self.db.delete_game(p1, p2)
                 try:
                     chat.remove_contact(me)
                 except ValueError:
@@ -28,11 +40,10 @@ class AccountListener:
 
 
 @deltabot_hookimpl
-def deltabot_init(bot):
+def deltabot_init(bot: DeltaBot) -> None:
     global db, dbot
     dbot = bot
-
-    db = DBManager(os.path.join(get_dir(), 'sqlite.db'))
+    db = get_db(bot)
 
     bot.filters.register(name=__name__, func=filter_messages)
 
@@ -40,15 +51,17 @@ def deltabot_init(bot):
     register_cmd('/surrender', '/reversi_surrender', cmd_surrender)
     register_cmd('/new', '/reversi_new', cmd_new)
 
+    bot.account.add_account_plugin(AccountListener(db, bot))
+
 
 # ======== Filters ===============
 
-def filter_messages(msg):
+def filter_messages(msg: Message) -> Optional[str]:
     """Process move coordinates in Reversi game groups
     """
     game = db.get_game_by_gid(msg.chat.id)
     if game is None or game['board'] is None or len(msg.text) != 2:
-        return
+        return None
 
     b = reversi.Board(game['board'])
     player = msg.get_sender_contact().addr
@@ -56,18 +69,20 @@ def filter_messages(msg):
     if b.turn == player:
         try:
             b.move(msg.text)
-            db.set_board(game['players'], b.export())
+            db.set_board(game['p1'], game['p2'], b.export())
             return run_turn(msg.chat.id)
         except (ValueError, AssertionError):
             return '❌ Invalid move!'
 
+    return None
+
 
 # ======== Commands ===============
 
-def cmd_play(cmd):
-    """Invite a friend to play.
+def cmd_play(cmd: IncomingCommand) -> Optional[str]:
+    """Invite a friend to play Reversi.
 
-    Example: `/reversi/play friend@example.com`
+    Example: `/play friend@example.com`
     """
     if not cmd.payload:
         return "Missing address"
@@ -77,25 +92,14 @@ def cmd_play(cmd):
     if p1 == p2:
         return "You can't play with yourself"
 
-    players = ','.join(sorted([p1, p2]))
-    g = db.get_game_by_players(players)
-
-    # fix bug caused by previous version
-    if g is not None:
-        chat = cmd.bot.get_chat(g['gid'])
-        me = cmd.bot.self_contact
-        contacts = cmd.message.chat.get_contacts()
-        c1, c2 = cmd.bot.get_contact(p1), cmd.bot.get_contact(p2)
-        if me not in contacts or c1 not in contacts or c2 not in contacts:
-            db.delete_game(g['players'])
-        g = None
+    g = db.get_game_by_players(p1, p2)
 
     if g is None:  # first time playing with p2
         b = reversi.DISKS[reversi.BLACK]
         w = reversi.DISKS[reversi.WHITE]
         chat = cmd.bot.create_group(
-            '{} {} 🆚 {} [{}]'.format(b, p1, p2, 'Reversi'), [p1, p2])
-        db.add_game(players, chat.id, reversi.Board().export(), p1)
+            '{} {} 🆚 {} [Reversi]'.format(b, p1, p2), [p1, p2])
+        db.add_game(p1, p2, chat.id, reversi.Board().export(), p1)
         text = 'Hello {1},\nYou have been invited by {0} to play Reversi'
         text += '\n\n{2}: {0}\n{3}: {1}\n\n'
         text = text.format(p1, p2, b, w)
@@ -104,46 +108,46 @@ def cmd_play(cmd):
         chat = cmd.bot.get_chat(g['gid'])
         chat.send_text('You already have a game group with {}'.format(p2))
 
+    return None
 
-def cmd_surrender(cmd):
-    """End the game in the group it is sent.
+
+def cmd_surrender(cmd: IncomingCommand) -> Optional[str]:
+    """End the Reversi game in the group it is sent.
     """
     game = db.get_game_by_gid(cmd.message.chat.id)
     loser = cmd.message.get_sender_contact().addr
     # this is not your game group
-    if game is None or loser not in game['players'].split(','):
+    if game is None or loser not in (game['p1'], game['p2']):
         return 'This is not your game group'
-    elif game['board'] is None:
-        return 'There are no game running'
-    else:
-        db.set_board(None, game['players'])
-        return '🏳️ Game Over.\n{} surrenders.'.format(loser)
+    if game['board'] is None:
+        return 'There is no game running'
+    db.set_board(game['p1'], game['p2'], None)
+    return '🏳️ Game Over.\n{} surrenders.'.format(loser)
 
 
-def cmd_new(cmd):
-    """Start a new game in the current game group.
+def cmd_new(cmd: IncomingCommand) -> Optional[str]:
+    """Start a new Reversi game in the current game group.
     """
     sender = cmd.message.get_sender_contact().addr
     game = db.get_game_by_gid(cmd.message.chat.id)
     # this is not your game group
-    if game is None or sender not in game['players'].split(','):
+    if game is None or sender not in (game['p1'], game['p2']):
         return 'This is not your game group'
-    elif game['board'] is None:
-        b = reversi.Board()
-        db.set_game(game['players'], b.export(), sender)
+    if game['board'] is None:
+        board = reversi.Board()
+        db.set_game(game['p1'], game['p2'], board.export(), sender)
         b = reversi.DISKS[reversi.BLACK]
         w = reversi.DISKS[reversi.WHITE]
-        p2 = game['players'].replace(sender, '').strip(',')
+        p2 = game['p2'] if sender == game['p1'] else game['p1']
         text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
             b, sender, w, p2)
         return text + run_turn(cmd.message.chat.id)
-    else:
-        return 'There are a game running already'
+    return 'There is a game running already'
 
 
 # ======== Utilities ===============
 
-def run_turn(gid):
+def run_turn(gid: int) -> str:
     g = db.get_game_by_gid(gid)
     b = reversi.Board(g['board'])
     result = b.result()
@@ -153,12 +157,12 @@ def run_turn(gid):
             turn = '{} {}'.format(disk, g['black'])
         else:
             disk = reversi.DISKS[reversi.WHITE]
-            p2 = g['players'].replace(g['black'], '').strip(',')
+            p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             turn = '{} {}'.format(disk, p2)
         return "{} it's your turn...\n\n{}\n\n{}".format(
             turn, b, b.get_score())
     else:
-        db.set_board(None, g['players'])
+        db.set_board(g['p1'], g['p2'], None)
         black, white = result[reversi.BLACK], result[reversi.WHITE]
         if black == white:
             return '🤝 Game over.\nIt is a draw!\n\n{}\n\n{}'.format(
@@ -169,20 +173,20 @@ def run_turn(gid):
                 winner = '{} {}'.format(disk, g['black'])
             else:
                 disk = reversi.DISKS[reversi.WHITE]
-                p2 = g['players'].replace(g['black'], '').strip(',')
+                p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
                 winner = '{} {}'.format(disk, p2)
             return '🏆 Game over.\n{} Wins!!!\n\n{}\n\n{}'.format(
                 winner, b, b.get_score())
 
 
-def get_dir():
-    path = os.path.join(os.path.dirname(dbot.account.db_path), __name__)
+def get_db(bot: DeltaBot) -> DBManager:
+    path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
-    return path
+    return DBManager(os.path.join(path, 'sqlite.db'))
 
 
-def register_cmd(name, alt_name, func):
+def register_cmd(name: str, alt_name: str, func: Callable) -> None:
     try:
         dbot.commands.register(name=name, func=func)
     except ValueError:

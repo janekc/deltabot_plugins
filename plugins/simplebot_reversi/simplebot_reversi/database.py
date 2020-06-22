@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from typing import Optional
 import sqlite3
 
 
@@ -7,41 +8,47 @@ class DBManager:
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
         self.commit('''CREATE TABLE IF NOT EXISTS games
-                       (players TEXT,
+                       (p1 TEXT,
+                        p2 TEXT,
                         gid INTEGER NOT NULL,
                         board TEXT,
                         black TEXT,
-                        PRIMARY KEY(players))''')
+                        PRIMARY KEY(p1,p2))''')
 
-    def execute(self, statement, args=()):
+    def execute(self, statement: str, args=()) -> sqlite3.Cursor:
         return self.db.execute(statement, args)
 
-    def commit(self, statement, args=()):
+    def commit(self, statement: str, args=()) -> sqlite3.Cursor:
         with self.db:
             return self.db.execute(statement, args)
 
-    def add_game(self, players, gid, board, black):
-        self.commit('INSERT INTO games VALUES (?,?,?,?)',
-                    (players, gid, board, black))
+    def close(self) -> None:
+        self.db.close()
 
-    def delete_game(self, players):
-        self.commit('DELETE FROM games WHERE players=?', (players,))
+    def add_game(self, p1: str, p2: str, gid: str, board: str, black: str) -> None:
+        p1, p2 = sorted([p1, p2])
+        self.commit('INSERT INTO games VALUES (?,?,?,?,?)',
+                    (p1, p2, gid, board, black))
 
-    def set_game(self, players, board, black):
-        self.commit('UPDATE games SET board=?, black=? WHERE players=?',
-                    (board, black, players))
+    def delete_game(self, p1: str, p2: str) -> None:
+        p1, p2 = sorted([p1, p2])
+        self.commit('DELETE FROM games WHERE p1=? AND p2=?', (p1, p2))
 
-    def set_board(self, players, board):
+    def set_game(self, p1: str, p2: str, board: str, black: str) -> None:
+        p1, p2 = sorted([p1, p2])
+        self.commit('UPDATE games SET board=?, black=? WHERE p1=? AND p2=?',
+                    (board, black, p1, p2))
+
+    def set_board(self, p1: str, p2: str, board: Optional[str]) -> None:
+        p1, p2 = sorted([p1, p2])
         self.commit(
-            'UPDATE games SET board=? WHERE players=?', (board, players))
+            'UPDATE games SET board=? WHERE p1=? AND p2=?', (board, p1, p2))
 
-    def get_game_by_gid(self, gid):
+    def get_game_by_gid(self, gid: int) -> Optional[sqlite3.Row]:
         return self.execute(
             'SELECT * FROM games WHERE gid=?', (gid,)).fetchone()
 
-    def get_game_by_players(self, players):
+    def get_game_by_players(self, p1: str, p2: str) -> Optional[sqlite3.Row]:
+        p1, p2 = sorted([p1, p2])
         return self.db.execute(
-            'SELECT * FROM games WHERE players=?', (players,)).fetchone()
-
-    def close(self):
-        self.db.close()
+            'SELECT * FROM games WHERE p1=? AND p2=?', (p1, p2)).fetchone()
