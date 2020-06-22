@@ -3,6 +3,9 @@ import io
 
 import chess
 import chess.pgn
+# typing
+from typing import List
+# ===
 
 
 ranks = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
@@ -25,7 +28,7 @@ pieces = {
 
 
 class Board:
-    def __init__(self, game=None, p1=None, p2=None):
+    def __init__(self, game: str=None, p1: str=None, p2: str=None) -> None:
         if game:
             self.game = chess.pgn.read_game(io.StringIO(game))
             self.board = self.game.board()
@@ -38,8 +41,8 @@ class Board:
             self.game.headers['Black'] = p2
             self.board = self.game.board()
 
-    def __str__(self):
-        rboard = [[], [], [], [], [], [], [], []]
+    def __str__(self) -> str:
+        rboard: List[List[str]] = [[]]*8
         for i, line in enumerate(str(self.board).splitlines()):
             for j, cell in enumerate(line.split()):
                 if cell == '.':
@@ -56,28 +59,28 @@ class Board:
         return text
 
     @property
-    def white(self):
+    def white(self) -> str:
         return self.game.headers['White']
 
     @property
-    def black(self):
+    def black(self) -> str:
         return self.game.headers['Black']
 
     @property
-    def turn(self):
+    def turn(self) -> str:
         if self.board.turn == chess.WHITE:
             return self.white
         return self.black
 
-    def move(self, mv):
+    def move(self, mv: str) -> None:
         try:
-            mv = self.board.push_san(mv)
+            m = self.board.push_san(mv)
         except ValueError:
-            mv = self.board.push_uci(mv)
-        self.game.end().add_variation(mv)
+            m = self.board.push_uci(mv)
+        self.game.end().add_variation(m)
 
-    def export(self):
+    def export(self) -> str:
         return str(self.game)
 
-    def result(self):
+    def result(self) -> str:
         return self.board.result()
