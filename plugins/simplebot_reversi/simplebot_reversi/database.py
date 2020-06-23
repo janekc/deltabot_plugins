@@ -4,7 +4,7 @@ import sqlite3
 
 
 class DBManager:
-    def __init__(self, db_path):
+    def __init__(self, db_path: str) -> None:
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row
         self.commit('''CREATE TABLE IF NOT EXISTS games
@@ -25,7 +25,8 @@ class DBManager:
     def close(self) -> None:
         self.db.close()
 
-    def add_game(self, p1: str, p2: str, gid: str, board: str, black: str) -> None:
+    def add_game(self, p1: str, p2: str, gid: str, board: str,
+                 black: str) -> None:
         p1, p2 = sorted([p1, p2])
         self.commit('INSERT INTO games VALUES (?,?,?,?,?)',
                     (p1, p2, gid, board, black))

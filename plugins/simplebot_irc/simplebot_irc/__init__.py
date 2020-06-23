@@ -8,28 +8,36 @@ from .irc import IRCBot
 from .database import DBManager
 from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
+# typing
+from typing import Callable, Generator, Optional
+from deltabot import DeltaBot
+from deltabot.commands import IncomingCommand
+from deltachat import Chat, Contact, Message
+# ======
 
 
 version = '1.0.0'
-dbot = None
-db = None
-irc_bridge = None
 nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
+dbot: DeltaBot = None
+db: DBManager = None
+irc_bridge: IRCBot = None
 
 
 # ======== Hooks ===============
 
 class AccountListener:
-    def __init__(self, db, bot, irc_bridge):
+    def __init__(self, db: DBManager, bot: DeltaBot,
+                 irc_bridge: IRCBot) -> None:
         self.db = db
         self.bot = bot
         self.irc_bridge = irc_bridge
 
     @account_hookimpl
-    def ac_member_removed(self, chat, contact, message):
+    def ac_member_removed(self, chat: Chat, contact: Contact,
+                          message: Message) -> None:
         channel = self.db.get_channel_by_gid(chat.id)
         if channel:
-            me = self.dbot.self_contact
+            me = self.bot.self_contact
             if me == contact or len(chat.get_contacts()) <= 1:
                 self.db.remove_cchat(chat.id)
                 if next(self.db.get_cchats(channel), None) is None:
@@ -38,7 +46,7 @@ class AccountListener:
 
 
 @deltabot_hookimpl
-def deltabot_init(bot):
+def deltabot_init(bot: DeltaBot) -> None:
     global dbot
     dbot = bot
 
@@ -52,10 +60,10 @@ def deltabot_init(bot):
 
 
 @deltabot_hookimpl
-def deltabot_start(bot):
+def deltabot_start(bot: DeltaBot) -> None:
     global db, irc_bridge
 
-    db = get_db()
+    db = get_db(bot)
 
     nick = getdefault('nick', 'SimpleBot')
     host = getdefault('host', 'irc.freenode.net')
@@ -68,12 +76,12 @@ def deltabot_start(bot):
 
 # ======== Filters ===============
 
-def filter_messages(msg):
+def filter_messages(msg: Message) -> Optional[str]:
     """Process messages sent to an IRC channel.
     """
     chan = db.get_channel_by_gid(msg.chat.id)
     if not chan:
-        return
+        return None
 
     if not msg.text or msg.filename:
         return 'Unsupported message'
@@ -86,10 +94,12 @@ def filter_messages(msg):
         if g.id != msg.chat.id:
             g.send_text(text)
 
+    return None
+
 
 # ======== Commands ===============
 
-def cmd_topic(cmd):
+def cmd_topic(cmd: IncomingCommand) -> str:
     """Show IRC channel topic.
     """
     chan = db.get_channel_by_gid(cmd.message.chat.id)
@@ -98,7 +108,7 @@ def cmd_topic(cmd):
     return 'Topic:\n{}'.format(irc_bridge.get_topic(chan))
 
 
-def cmd_members(cmd):
+def cmd_members(cmd: IncomingCommand) -> str:
     """Show list of IRC channel members.
     """
     me = cmd.bot.self_contact
@@ -119,7 +129,7 @@ def cmd_members(cmd):
     return members
 
 
-def cmd_nick(cmd):
+def cmd_nick(cmd: IncomingCommand) -> str:
     """Set your IRC nick or display your current nick if no new nick is given.
     """
     addr = cmd.message.get_sender_contact().addr
@@ -134,21 +144,19 @@ def cmd_nick(cmd):
     return '** Nick: {}'.format(db.get_nick(addr))
 
 
-def cmd_join(cmd):
+def cmd_join(cmd: IncomingCommand) -> Optional[str]:
     """Join the given IRC channel.
     """
     sender = cmd.message.get_sender_contact()
     if not cmd.payload:
-        return
+        return None
     if not db.is_whitelisted(cmd.payload):
         return "That channel isn't in the whitelist"
 
-    if db.channel_exists(cmd.payload):
-        chats = get_cchats(cmd.payload)
-    else:
+    chats = get_cchats(cmd.payload)
+    if not db.channel_exists(cmd.payload):
         irc_bridge.join_channel(cmd.payload)
         db.add_channel(cmd.payload)
-        chats = []
 
     g = None
     gsize = int(getdefault('max_group_size', '20'))
@@ -156,7 +164,7 @@ def cmd_join(cmd):
         contacts = group.get_contacts()
         if sender in contacts:
             group.send_text('You are already a member of this group')
-            return
+            return None
         if len(contacts) < gsize:
             g = group
             gsize = len(contacts)
@@ -169,9 +177,10 @@ def cmd_join(cmd):
     nick = db.get_nick(sender.addr)
     text = '** You joined {} as {}'.format(cmd.payload, nick)
     g.send_text(text)
+    return None
 
 
-def cmd_remove(cmd):
+def cmd_remove(cmd: IncomingCommand) -> Optional[str]:
     """Remove the member with the given nick from the IRC channel, if no nick is given remove yourself.
     """
     sender = cmd.message.get_sender_contact()
@@ -201,7 +210,7 @@ def cmd_remove(cmd):
             if c.addr == text:
                 g.remove_contact(c)
                 if c == sender:
-                    return
+                    return None
                 s_nick = db.get_nick(sender.addr)
                 nick = db.get_nick(c.addr)
                 text = '** {} removed by {}'.format(nick, s_nick)
@@ -209,12 +218,14 @@ def cmd_remove(cmd):
                     g.send_text(text)
                 text = 'Removed from {} by {}'.format(channel, s_nick)
                 dbot.get_chat(c).send_text(text)
-                return
+                return None
+
+    return None
 
 
 # ======== Utilities ===============
 
-def run_irc():
+def run_irc() -> None:
     while True:
         try:
             irc_bridge.start()
@@ -223,14 +234,14 @@ def run_irc():
             sleep(5)
 
 
-def register_cmd(name, alt_name, func):
+def register_cmd(name: str, alt_name: str, func: Callable) -> None:
     try:
         dbot.commands.register(name=name, func=func)
     except ValueError:
         dbot.commands.register(name=alt_name, func=func)
 
 
-def getdefault(key, value):
+def getdefault(key: str, value: str) -> str:
     val = dbot.get(key, scope=__name__)
     if val is None:
         dbot.set(key, value, scope=__name__)
@@ -238,13 +249,13 @@ def getdefault(key, value):
     return val
 
 
-def get_cchats(channel):
+def get_cchats(channel: str) -> Generator:
     for gid in db.get_cchats(channel):
         yield dbot.get_chat(gid)
 
 
-def get_db():
-    path = os.path.join(os.path.dirname(dbot.account.db_path), __name__)
+def get_db(bot) -> DBManager:
+    path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
     if not os.path.exists(path):
         os.makedirs(path)
     return DBManager(os.path.join(path, 'sqlite.db'))

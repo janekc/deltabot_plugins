@@ -28,7 +28,8 @@ pieces = {
 
 
 class Board:
-    def __init__(self, game: str=None, p1: str=None, p2: str=None) -> None:
+    def __init__(self, game: str = None, p1: str = None,
+                 p2: str = None) -> None:
         if game:
             self.game = chess.pgn.read_game(io.StringIO(game))
             self.board = self.game.board()

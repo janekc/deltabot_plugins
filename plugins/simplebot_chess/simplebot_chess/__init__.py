@@ -26,7 +26,8 @@ class AccountListener:
         self.bot = bot
 
     @account_hookimpl
-    def ac_member_removed(self, chat: Chat, contact: Contact, message: Message) -> None:
+    def ac_member_removed(self, chat: Chat, contact: Contact,
+                          message: Message) -> None:
         game = self.db.get_game_by_gid(chat.id)
         if game:
             me = self.bot.self_contact

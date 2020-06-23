@@ -5,6 +5,10 @@ import html
 from deltabot.hookspec import deltabot_hookimpl
 import requests
 import pytz
+# typing
+from deltabot import DeltaBot
+from deltabot.commands import IncomingCommand
+# ===
 
 
 version = '1.0.0'
@@ -16,11 +20,11 @@ channels = ['Cubavision', 'Telerebelde', 'Educativo', 'Educativo 2',
 
 
 @deltabot_hookimpl
-def deltabot_init(bot):
+def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name="/cartv", func=cmd_cartv)
 
 
-def cmd_cartv(cmd):
+def cmd_cartv(cmd: IncomingCommand) -> str:
     """Muestra la cartelera de la TV cubana.
 
     Muestra la cartelera para el canal dado o la cartelera para todos
@@ -46,14 +50,14 @@ def cmd_cartv(cmd):
     return text
 
 
-def format_channel(text):
+def format_channel(text: str) -> str:
     lines = html.unescape(text).splitlines()
-    lines = [l.strip().replace('\t', ' ') for l in lines]
+    lines = [ln.strip().replace('\t', ' ') for ln in lines]
 
     text = '{} {}\n'.format(tv_emoji, lines[0])
     text += '{} {}\n'.format(cal_emoji, lines[1])
 
-    for l in lines[2:]:
-        text += '{} {}\n'.format(aster_emoji, l)
+    for line in lines[2:]:
+        text += '{} {}\n'.format(aster_emoji, line)
 
     return text

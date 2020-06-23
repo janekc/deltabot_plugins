@@ -3,6 +3,11 @@ import logging
 
 from slixmpp import ClientXMPP
 # from slixmpp.exceptions import IqError, IqTimeout
+# typing
+from typing import Generator
+from .database import DBManager
+from deltabot import DeltaBot
+# ======
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -10,7 +15,8 @@ logging.basicConfig(level=logging.DEBUG,
 
 
 class XMPPBot(ClientXMPP):
-    def __init__(self, jid, password, nick, db, dbot):
+    def __init__(self, jid: str, password: str, nick: str, db: DBManager,
+                 dbot: DeltaBot) -> None:
         ClientXMPP.__init__(self, jid, password)
         self.nick = nick
         self.db = db
@@ -25,7 +31,7 @@ class XMPPBot(ClientXMPP):
         self.register_plugin('xep_0128')  # Service Discovery Extensions
         # self.register_plugin('xep_0071')  # XHTML-IM
 
-    def on_session_start(self, event):
+    def on_session_start(self, event) -> None:
         self.dbot.logger.debug('XMPP session started')
         self.send_presence(
             pstatus='Open source DeltaChat <--> XMPP bridge')
@@ -34,7 +40,7 @@ class XMPPBot(ClientXMPP):
         for jid in self.db.get_channels():
             self.join_channel(jid)
 
-    def on_message(self, msg):
+    def on_message(self, msg) -> None:
         nick = msg['mucnick']
         if nick == self.nick:
             return
@@ -46,19 +52,19 @@ class XMPPBot(ClientXMPP):
                 self.dbot.get_chat(gid).send_text(
                     '{}[xmpp]:\n{}'.format(nick, msg['body']))
 
-    def on_disconnected(self, event):
+    def on_disconnected(self, event) -> None:
         self.dbot.logger.debug('XMPP bridge disconnected')
         self.abort()
 
-    def join_channel(self, jid):
+    def join_channel(self, jid: str) -> None:
         self.dbot.logger.debug('Joining XMPP channel: %s', jid)
         self['xep_0045'].join_muc(jid, self.nick)
 
-    def leave_channel(self, jid):
+    def leave_channel(self, jid: str) -> None:
         self.dbot.logger.debug('Leaving XMPP channel: %s', jid)
         self['xep_0045'].leave_muc(jid, self.nick)
 
-    def get_members(self, jid):
+    def get_members(self, jid: str) -> Generator:
         for u in self['xep_0045'].get_roster(jid):
             if u:
                 yield u

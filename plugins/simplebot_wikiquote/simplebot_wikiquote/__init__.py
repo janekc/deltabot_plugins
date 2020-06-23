@@ -3,17 +3,21 @@ from random import choice
 
 from deltabot.hookspec import deltabot_hookimpl
 import wikiquote as wq
+# typing
+from deltabot import DeltaBot
+from deltabot.commands import IncomingCommand
+# ======
 
 
 version = '1.0.0'
 
 
 @deltabot_hookimpl
-def deltabot_init(bot):
+def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name="/quote", func=cmd_quote)
 
 
-def cmd_quote(cmd):
+def cmd_quote(cmd: IncomingCommand) -> str:
     """Get Wikiquote quotes.
 
     Search in Wikiquote or get the quote of the day if no text is given.

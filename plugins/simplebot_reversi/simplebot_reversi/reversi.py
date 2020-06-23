@@ -14,7 +14,7 @@ class Board:
         if board:
             lines = board.split('\n')
             self.turn = lines[0]
-            self._board = [[e for e in l] for l in lines[1:]]
+            self._board = [[e for e in ln] for ln in lines[1:]]
         else:
             self.turn = BLACK
             self._board = [[' ' for y in range(8)] for x in range(8)]
@@ -24,7 +24,7 @@ class Board:
             self._board[4][4] = BLACK
 
     def export(self) -> str:
-        b = '\n'.join(''.join(l) for l in self._board)
+        b = '\n'.join(''.join(ln) for ln in self._board)
         return '\n'.join((self.turn, b))
 
     def __str__(self) -> str:
