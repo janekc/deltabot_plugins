@@ -5,7 +5,7 @@ from typing import Optional, Generator
 
 
 class DBManager:
-    def __init__(self, db_path):
+    def __init__(self, db_path: str) -> None:
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         with self.db:
