@@ -17,4 +17,4 @@ if __name__ == '__main__':
 
     cmd = 'pip install -U "{}"'
     for p in plugins:
-        print(cmd.format(os.path.join(pdir, p)))
+        os.system(cmd.format(os.path.join(pdir, p)))
