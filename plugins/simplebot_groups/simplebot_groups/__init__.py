@@ -226,7 +226,7 @@ def cmd_list(cmd: IncomingCommand) -> str:
     groups: list = db.get_groups(Status.PUBLIC)
     for i, g in enumerate(groups):
         chat = cmd.bot.get_chat(g['id'])
-        groups[i] = (chat.get_name(), chat['topic'], '{}{}'.format(
+        groups[i] = (chat.get_name(), g['topic'], '{}{}'.format(
             GROUP_URL, chat.id), len(chat.get_contacts()))
 
     for mg in db.get_mgroups(Status.PUBLIC):
