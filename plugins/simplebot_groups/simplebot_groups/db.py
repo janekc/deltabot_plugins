@@ -10,7 +10,7 @@ class Status(IntEnum):
 
 class DBManager:
     def __init__(self, db_path: str) -> None:
-        self.db = sqlite3.connect(db_path)
+        self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.execute(
             '''CREATE TABLE IF NOT EXISTS nicks
