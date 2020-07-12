@@ -247,7 +247,7 @@ def cmd_list(cmd: IncomingCommand) -> str:
     groups.sort(key=lambda g: g[-1])
     text = 'Groups & Channels ({}):\n\n'.format(len(groups))
     text += '―――――――――――――――\n\n'.join(
-        '{0}:\n* {3} 👤\nTopic: {1}\nID: {2}\n\n'.format(*g) for g in groups)
+        '{0}:\n👤 {3}\nTopic: {1}\nID: {2}\n\n'.format(*g) for g in groups)
     return text
 
 
