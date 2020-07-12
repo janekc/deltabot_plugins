@@ -26,7 +26,7 @@ if __name__ == "__main__":
         description='A plugin for SimpleBot, a Delta Chat(http://delta.chat/) bot',
         long_description=long_description,
         long_description_content_type='text/x-rst',
-        keywords='simplebot deltabot plugin',
+        keywords='simplebot plugin deltachat',
         license='MPL',
         classifiers=[
             'Development Status :: 3 - Alpha',
