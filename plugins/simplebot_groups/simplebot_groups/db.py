@@ -95,8 +95,8 @@ class DBManager:
 
     def add_group(self, gid: int, pid: str, topic: Optional[str],
                   status: Status) -> None:
-        self.execute('INSERT INTO groups VALUES (?,?,?,?)',
-                     (gid, pid, topic, status))
+        self.commit('INSERT INTO groups VALUES (?,?,?,?)',
+                    (gid, pid, topic, status))
 
     def remove_group(self, gid: int) -> None:
         self.commit('DELETE FROM groups WHERE id=?', (gid,))
@@ -117,8 +117,8 @@ class DBManager:
 
     def add_mgroup(self, pid: str, name: str, topic: Optional[str],
                    status: Status) -> int:
-        return self.execute('INSERT INTO mgroups VALUES(?,?,?,?,?)',
-                            (None, pid, name, topic, status)).lastrowid
+        return self.commit('INSERT INTO mgroups VALUES(?,?,?,?,?)',
+                           (None, pid, name, topic, status)).lastrowid
 
     def remove_mgroup(self, mgid: int) -> None:
         self.commit('DELETE FROM mg_images WHERE mgroup=?', (mgid,))
@@ -157,8 +157,8 @@ class DBManager:
 
     def add_channel(self, pid: str, name: str, topic: Optional[str],
                     admin: int, status: Status) -> None:
-        self.execute('INSERT INTO channels VALUES (?,?,?,?,?,?)',
-                     (None, pid, name, topic, status, admin))
+        self.commit('INSERT INTO channels VALUES (?,?,?,?,?,?)',
+                    (None, pid, name, topic, status, admin))
 
     def remove_channel(self, cgid: int) -> None:
         self.commit('DELETE FROM channel_images WHERE channel=?', (cgid,))
