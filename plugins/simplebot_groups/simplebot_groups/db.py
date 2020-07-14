@@ -26,7 +26,7 @@ class DBManager:
             '''CREATE TABLE IF NOT EXISTS mgroups
             (id INTEGER PRIMARY KEY,
             pid TEXT NOT NULL,
-            name TEXT NOT NULL,
+            name TEXT UNIQUE NOT NULL,
             topic TEXT,
             status INTEGER NOT NULL)''')
         self.execute(
@@ -116,9 +116,9 @@ class DBManager:
     # ==== mega groups =====
 
     def add_mgroup(self, pid: str, name: str, topic: Optional[str],
-                   status: Status) -> int:
-        return self.commit('INSERT INTO mgroups VALUES(?,?,?,?,?)',
-                           (None, pid, name, topic, status)).lastrowid
+                   status: Status) -> None:
+        self.commit('INSERT INTO mgroups VALUES(?,?,?,?,?)',
+                    (None, pid, name, topic, status))
 
     def remove_mgroup(self, mgid: int) -> None:
         self.commit('DELETE FROM mg_images WHERE mgroup=?', (mgid,))
@@ -128,6 +128,10 @@ class DBManager:
     def get_mgroup_by_id(self, mgid: int) -> Optional[sqlite3.Row]:
         return self.execute(
             'SELECT * FROM mgroups WHERE id=?', (mgid,)).fetchone()
+
+    def get_mgroup_by_name(self, name: str) -> Optional[sqlite3.Row]:
+        return self.execute(
+            'SELECT * FROM mgroups WHERE name=?', (name,)).fetchone()
 
     def get_mgroup(self, gid: int) -> Optional[sqlite3.Row]:
         r = self.execute(

@@ -156,13 +156,16 @@ def cmd_mega(cmd: IncomingCommand) -> str:
         return 'This is a channel'
 
     name = cmd.message.chat.get_name()
+    if db.get_mgroup_by_name(name):
+        return 'Failed, there is a mega-group with the same name'
+
     g = db.get_group(cmd.message.chat.id)
     if g:
         db.remove_group(g['id'])
-        mgid = db.add_mgroup(g['pid'], name, g['topic'], g['status'])
+        db.add_mgroup(g['pid'], name, g['topic'], g['status'])
     else:
-        mgid = db.add_mgroup(generate_pid(), name, None, Status.PUBLIC)
-    db.add_mchat(cmd.message.chat.id, mgid)
+        db.add_mgroup(generate_pid(), name, None, Status.PUBLIC)
+    db.add_mchat(cmd.message.chat.id, db.get_mgroup_by_name(name)['id'])
 
     return 'This is now a mega-group'
 
