@@ -159,9 +159,11 @@ def cmd_mega(cmd: IncomingCommand) -> str:
     g = db.get_group(cmd.message.chat.id)
     if g:
         db.remove_group(g['id'])
-        db.add_mgroup(g['pid'], name, g['topic'], g['status'])
+        mgid = db.add_mgroup(g['pid'], name, g['topic'], g['status'])
     else:
-        db.add_mgroup(generate_pid(), name, None, Status.PUBLIC)
+        mgid = db.add_mgroup(generate_pid(), name, None, Status.PUBLIC)
+    db.add_mchat(cmd.message.chat.id, mgid)
+
     return 'This is now a mega-group'
 
 
