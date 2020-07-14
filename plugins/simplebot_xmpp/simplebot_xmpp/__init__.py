@@ -175,7 +175,7 @@ def cmd_join(cmd: IncomingCommand) -> Optional[str]:
         g = dbot.create_group(cmd.payload, [sender])
         db.add_cchat(g.id, cmd.payload)
     else:
-        g.add_contact(sender)
+        add_contact(g, sender)
 
     nick = db.get_nick(sender.addr)
     g.send_text('** You joined {} as {}'.format(cmd.payload, nick))
@@ -268,3 +268,10 @@ def get_db(bot: DeltaBot) -> DBManager:
     if not os.path.exists(path):
         os.makedirs(path)
     return DBManager(os.path.join(path, 'sqlite.db'))
+
+
+def add_contact(chat: Chat, contact: Contact) -> None:
+    img_path = chat.get_profile_image()
+    if img_path and not os.path.exists(img_path):
+        chat.remove_profile_image()
+    chat.add_contact(contact)

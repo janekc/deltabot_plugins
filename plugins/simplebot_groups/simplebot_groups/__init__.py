@@ -350,7 +350,7 @@ def cmd_join(cmd: IncomingCommand) -> Optional[str]:
                 g = cmd.bot.create_group(mg['name'], [sender])
                 db.add_mchat(g.id, mg['id'])
             else:
-                g.add_contact(sender)
+                add_contact(g, sender)
 
             text = text.format(mg['name'], cmd.payload, mg['topic'])
             text += '\n\nYour Nick: {}'.format(db.get_nick(sender.addr))
@@ -368,7 +368,7 @@ def cmd_join(cmd: IncomingCommand) -> Optional[str]:
                 g.send_text('You are already a member of this group')
                 return None
             elif len(contacts) < int(getdefault('max_group_size')):
-                g.add_contact(sender)
+                add_contact(g, sender)
                 return text.format(g.get_name(), cmd.payload, gr['topic'])
             else:
                 return 'Group is full'
@@ -594,3 +594,10 @@ def add_group(gid: int) -> None:
         db.add_group(gid, generate_pid(), None, Status.PUBLIC)
     else:
         dbot.get_chat(gid).remove_contact(dbot.self_contact)
+
+
+def add_contact(chat: Chat, contact: Contact) -> None:
+    img_path = chat.get_profile_image()
+    if img_path and not os.path.exists(img_path):
+        chat.remove_profile_image()
+    chat.add_contact(contact)
