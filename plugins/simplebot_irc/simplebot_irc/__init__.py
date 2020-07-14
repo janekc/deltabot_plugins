@@ -92,9 +92,11 @@ def filter_messages(msg: Message) -> Optional[str]:
         return 'Unsupported message'
 
     nick = db.get_nick(msg.get_sender_contact().addr)
-    text = '{}[dc]: {}'.format(nick, msg.text)
 
-    irc_bridge.send_message(chan, text)
+    for line in msg.text.split('\n'):
+        irc_bridge.send_message(chan, '{}[dc]: {}'.format(nick, line))
+
+    text = '{}[dc]: {}'.format(nick, msg.text)
     for g in get_cchats(chan):
         if g.id != msg.chat.id:
             g.send_text(text)
