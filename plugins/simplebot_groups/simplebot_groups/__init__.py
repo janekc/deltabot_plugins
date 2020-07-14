@@ -569,7 +569,7 @@ def rmprefix(text: str, prefix: str) -> str:
     return text[text.startswith(prefix) and len(prefix):]
 
 
-def generate_pid(length: int = 10) -> str:
+def generate_pid(length: int = 6) -> str:
     chars = string.ascii_uppercase + string.ascii_lowercase + string.digits
     return ''.join(random.choice(chars) for i in range(length))
 
