@@ -42,7 +42,6 @@ if __name__ == "__main__":
         install_requires=[
             'deltabot',
             'requests',
-            'pytz',
         ],
         entry_points={
             'deltabot.plugins': '{0} = {0}'.format(module_name),
