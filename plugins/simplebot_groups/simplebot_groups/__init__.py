@@ -575,7 +575,7 @@ def generate_pid(length: int = 6) -> str:
 
 
 def get_mchats(mgid: int) -> Generator:
-    for gid in db.get_cchats(mgid):
+    for gid in db.get_mchats(mgid):
         yield dbot.get_chat(gid)
 
 
