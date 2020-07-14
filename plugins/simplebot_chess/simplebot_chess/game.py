@@ -43,18 +43,18 @@ class Board:
             self.board = self.game.board()
 
     def __str__(self) -> str:
-        rboard: List[List[str]] = [[]]*8
-        for i, line in enumerate(str(self.board).splitlines()):
-            for j, cell in enumerate(line.split()):
+        board = [ln.split() for ln in str(self.board).splitlines()]
+        for i, row in enumerate(board):
+            for j, cell in enumerate(row):
                 if cell == '.':
                     cell = '⬛' if (i+j+1) % 2 == 0 else '⬜'
                 else:
                     cell = pieces[cell]
-                rboard[j].insert(0, cell)
+                board[i][j] = cell
 
         text = '|'.join(ranks) + '\n'
-        for i, row in enumerate(rboard):
-            for cell in row:
+        for i, r in enumerate(zip(*reversed(board))):
+            for cell in r:
                 text += cell + '|'
             text += files[i] + '\n'
         return text
