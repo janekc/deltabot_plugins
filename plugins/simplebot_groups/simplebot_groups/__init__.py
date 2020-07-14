@@ -211,7 +211,7 @@ def cmd_id(cmd: IncomingCommand) -> str:
 
     g = db.get_group(cmd.message.chat.id)
     if not g:
-        add_group(cmd.message.id)
+        add_group(cmd.message.chat.id)
         g = db.get_group(cmd.message.chat.id)
         assert g is not None
 
@@ -409,9 +409,9 @@ def cmd_topic(cmd: IncomingCommand) -> Optional[str]:
         if ch:
             return 'Only channel operators can do that.'
 
-        g = db.get_group(cmd.message.id)
+        g = db.get_group(cmd.message.chat.id)
         if not g:
-            add_group(cmd.message.id)
+            add_group(cmd.message.chat.id)
             g = db.get_group(cmd.message.chat.id)
             assert g is not None
         db.set_group_topic(g['id'], new_topic)
@@ -421,7 +421,7 @@ def cmd_topic(cmd: IncomingCommand) -> Optional[str]:
     g = db.get_mgroup(cmd.message.chat.id) or db.get_channel(
         cmd.message.chat.id) or db.get_group(cmd.message.chat.id)
     if not g:
-        add_group(cmd.message.id)
+        add_group(cmd.message.chat.id)
         g = db.get_group(cmd.message.chat.id)
         assert g is not None
     return 'Topic:\n{}'.format(g['topic'])
@@ -534,7 +534,7 @@ def register_cmd(name: str, alt_name: str, func: Callable) -> None:
 
 def getdefault(key: str, value: str = None) -> str:
     val = dbot.get(key, scope=__name__)
-    if val is None:
+    if val is None and value is not None:
         dbot.set(key, value, scope=__name__)
         val = value
     return val
