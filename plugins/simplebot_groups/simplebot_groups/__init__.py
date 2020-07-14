@@ -45,14 +45,15 @@ class AccountListener:
         me = self.bot.self_contact
 
         g = self.db.get_group(chat.id)
+        ccount = len(chat.get_contacts()) - 1
         if g:
-            if me == contact or len(chat.get_contacts()) <= 1:
+            if me == contact or ccount <= 1:
                 self.db.remove_group(chat.id)
             return
 
         mg = self.db.get_mgroup(chat.id)
         if mg:
-            if me == contact or len(chat.get_contacts()) <= 1:
+            if me == contact or ccount <= 1:
                 self.db.remove_mchat(chat.id)
                 if not self.db.get_mchats(mg['id']):
                     self.db.remove_mgroup(mg['id'])
@@ -60,7 +61,7 @@ class AccountListener:
 
         ch = self.db.get_channel(chat.id)
         if ch:
-            if me == contact or len(chat.get_contacts()) <= 1:
+            if me == contact or ccount <= 1:
                 if ch['admin'] == chat.id:
                     for cchat in get_cchats(ch['id']):
                         try:

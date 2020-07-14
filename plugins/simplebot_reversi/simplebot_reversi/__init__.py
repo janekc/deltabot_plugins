@@ -33,10 +33,8 @@ class AccountListener:
             p1, p2 = game['p1'], game['p2']
             if contact.addr in (me.addr, p1, p2):
                 self.db.delete_game(p1, p2)
-                try:
+                if contact != me:
                     chat.remove_contact(me)
-                except ValueError:
-                    pass
 
 
 @deltabot_hookimpl

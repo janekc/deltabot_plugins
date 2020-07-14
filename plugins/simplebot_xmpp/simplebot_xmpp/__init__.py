@@ -41,12 +41,12 @@ class AccountListener:
                 'XMPP member removed: contact=%r, msg=%r',
                 contact.addr, message)
             me = self.bot.self_contact
-            if me == contact or len(chat.get_contacts()) <= 1:
+            ccount = len(chat.get_contacts()) - 1
+            if me == contact or ccount <= 1:
                 self.db.remove_cchat(chat.id)
                 if next(self.db.get_cchats(channel), None) is None:
                     self.db.remove_channel(channel)
                     self.xmpp_bridge.leave_channel(channel)
-            message.mark_seen()
 
 
 @deltabot_hookimpl
