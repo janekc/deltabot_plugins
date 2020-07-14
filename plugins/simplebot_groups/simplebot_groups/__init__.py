@@ -216,7 +216,7 @@ def cmd_id(cmd: IncomingCommand) -> str:
         assert g is not None
 
     url = GROUP_URL
-    if status == Status.PUBLIC:
+    if g['status'] == Status.PUBLIC:
         status = 'Group Status: Public'
         gid = '{}{}'.format(url, g['id'])
     else:
