@@ -14,8 +14,8 @@ from deltachat import Chat, Contact, Message
 
 
 version = '1.0.0'
-db: DBManager = None
-dbot: DeltaBot = None
+db: DBManager
+dbot: DeltaBot
 
 
 # ======== Hooks ===============

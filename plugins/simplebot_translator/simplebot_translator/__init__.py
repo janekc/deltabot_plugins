@@ -12,7 +12,6 @@ version = '1.0.0'
 LANGUAGES = '\n'.join(
     ['* {}: {}'.format(v, k)
      for k, v in sorted(LANGUAGES.items(), key=lambda e: e[1])])
-dbot: DeltaBot = None
 
 
 @deltabot_hookimpl

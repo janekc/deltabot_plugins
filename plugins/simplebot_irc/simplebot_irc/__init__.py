@@ -19,8 +19,8 @@ from deltachat import Chat, Contact, Message
 version = '1.0.0'
 nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
 dbot: DeltaBot = None
-db: DBManager = None
-irc_bridge: IRCBot = None
+db: DBManager
+irc_bridge: IRCBot
 
 
 # ======== Hooks ===============
