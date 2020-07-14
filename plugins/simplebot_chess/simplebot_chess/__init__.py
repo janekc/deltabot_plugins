@@ -48,6 +48,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     register_cmd('/play', '/chess_play', cmd_play)
     register_cmd('/surrender', '/chess_surrender', cmd_surrender)
     register_cmd('/new', '/chess_new', cmd_new)
+    register_cmd('/repeat', '/chess_repeat', cmd_repeat)
 
     bot.account.add_account_plugin(AccountListener(db, bot))
 
@@ -137,6 +138,12 @@ def cmd_new(cmd: IncomingCommand) -> Optional[str]:
             p1, p2)
         return text + run_turn(cmd.message.chat.id)
     return 'There is a game running already'
+
+
+def cmd_repeat(cmd: IncomingCommand) -> str:
+    """Send game board again.
+    """
+    return run_turn(cmd.message.chat.id)
 
 
 # ======== Utilities ===============
