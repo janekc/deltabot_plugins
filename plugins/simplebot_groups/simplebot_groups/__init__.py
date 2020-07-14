@@ -81,12 +81,16 @@ def deltabot_init(bot: DeltaBot) -> None:
     getdefault('max_mgroup_size', '20')
     getdefault('max_group_size', '20')
     getdefault('max_topic_size', '500')
+    getdefault('allow_groups', '1')
+    allow_mgroups = getdefault('allow_mgroups', '1')
+    allow_channels = getdefault('allow_channels', '1')
 
     # getdefault('max_file_size', '102400')  # 100KB
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    register_cmd('/mega', '/group_mega', cmd_mega)
+    if allow_mgroups == '1':
+        register_cmd('/mega', '/group_mega', cmd_mega)
     register_cmd('/nick', '/group_nick', cmd_nick)
     register_cmd('/id', '/group_id', cmd_id)
     register_cmd('/list', '/group_list', cmd_list)
@@ -95,7 +99,8 @@ def deltabot_init(bot: DeltaBot) -> None:
     register_cmd('/join', '/group_join', cmd_join)
     register_cmd('/topic', '/group_topic', cmd_topic)
     register_cmd('/remove', '/group_remove', cmd_remove)
-    register_cmd('/channel', '/group_channel', cmd_channel)
+    if allow_channels == '1':
+        register_cmd('/channel', '/group_channel', cmd_channel)
     # register_cmd('/public', '/group_public', cmd_public)
     # register_cmd('/private', '/group_private', cmd_private)
     # register_cmd('/name', '/group_name', cmd_name)
@@ -256,19 +261,19 @@ def cmd_me(cmd: IncomingCommand) -> str:
     """
     sender = cmd.message.get_sender_contact()
     groups = []
-    for group in db.get_groups(Status.PUBLIC):
+    for group in db.get_groups(Status.PUBLIC) + db.get_groups(Status.PRIVATE):
         g = cmd.bot.get_chat(group['id'])
         if sender in g.get_contacts():
             groups.append((g.get_name(), '{}{}'.format(GROUP_URL, g.id)))
 
-    for mg in db.get_mgroups(Status.PUBLIC):
+    for mg in db.get_mgroups(Status.PUBLIC) + db.get_mgroups(Status.PRIVATE):
         for g in get_mchats(mg['id']):
             if sender in g.get_contacts():
                 groups.append(
                     (mg['name'], '{}{}'.format(MGROUP_URL, mg['id'])))
                 break
 
-    for ch in db.get_channels(Status.PUBLIC):
+    for ch in db.get_channels(Status.PUBLIC) + db.get_channels(Status.PRIVATE):
         for c in get_cchats(ch['id']):
             if sender in c.get_contacts():
                 groups.append(
@@ -373,6 +378,9 @@ def cmd_join(cmd: IncomingCommand) -> Optional[str]:
 def cmd_topic(cmd: IncomingCommand) -> Optional[str]:
     """Show or change group/channel topic.
     """
+    if not cmd.message.chat.is_group():
+        return 'This is not a group'
+
     if cmd.payload:
         new_topic = ' '.join(cmd.payload.split())
         max_size = int(getdefault('max_topic_size'))
@@ -412,9 +420,11 @@ def cmd_topic(cmd: IncomingCommand) -> Optional[str]:
 
     g = db.get_mgroup(cmd.message.chat.id) or db.get_channel(
         cmd.message.chat.id) or db.get_group(cmd.message.chat.id)
-    if g:
-        return 'Topic:\n{}'.format(g['topic'])
-    return 'This is not a group or channel'
+    if not g:
+        add_group(cmd.message.id)
+        g = db.get_group(cmd.message.chat.id)
+        assert g is not None
+    return 'Topic:\n{}'.format(g['topic'])
 
 
 def cmd_remove(cmd: IncomingCommand) -> Optional[str]:
@@ -561,4 +571,7 @@ def get_cchats(cgid: int, include_admin: bool = False) -> Generator:
 
 
 def add_group(gid: int) -> None:
-    db.add_group(gid, generate_pid(), None, Status.PUBLIC)
+    if getdefault('allow_groups') == '1':
+        db.add_group(gid, generate_pid(), None, Status.PUBLIC)
+    else:
+        dbot.get_chat(gid).remove_contact(dbot.self_contact)
