@@ -227,35 +227,48 @@ def cmd_id(cmd: IncomingCommand) -> str:
     return '{}\nID: {}'.format(status, gid)
 
 
-def cmd_list(cmd: IncomingCommand) -> str:
+def cmd_list(cmd: IncomingCommand) -> Optional[str]:
     """Show the list of public groups, mega-groups and channels.
     """
+    def get_list(header, groups):
+        groups.sort(key=lambda g: g[-1])
+        text = '{} ({}):\n\n'.format(header, len(groups))
+        text += '―――――――――――――――\n\n'.join(
+            '{0}:\n👤 {3}\nTopic: {1}\nID: {2}\n\n'.format(*g) for g in groups)
+        return text
+
     groups: list = db.get_groups(Status.PUBLIC)
     for i, g in enumerate(groups):
         chat = cmd.bot.get_chat(g['id'])
         groups[i] = (chat.get_name(), g['topic'], '{}{}'.format(
             GROUP_URL, chat.id), len(chat.get_contacts()))
+    if groups:
+        cmd.message.chat.send_text(get_list('Groups', groups))
 
+    mgroups = []
     for mg in db.get_mgroups(Status.PUBLIC):
         count = sum(
             map(lambda g: len(g.get_contacts())-1, get_mchats(mg['id'])))
         if count == 0:
             db.remove_mgroup(mg['id'])
             continue
-        groups.append((mg['name'], mg['topic'],
-                       '{}{}'.format(MGROUP_URL, mg['id']), count))
+        mgroups.append((mg['name'], mg['topic'],
+                        '{}{}'.format(MGROUP_URL, mg['id']), count))
+    if mgroups:
+        cmd.message.chat.send_text(get_list('Mega-Groups', mgroups))
 
+    channels = []
     for ch in db.get_channels(Status.PUBLIC):
         count = sum(
             map(lambda g: len(g.get_contacts())-1, get_cchats(ch['id'])))
-        groups.append((ch['name'], ch['topic'],
-                       '{}{}'.format(CHANNEL_URL, ch['id']), count))
+        channels.append((ch['name'], ch['topic'],
+                         '{}{}'.format(CHANNEL_URL, ch['id']), count))
+    if channels:
+        cmd.message.chat.send_text(get_list('Channels', channels))
 
-    groups.sort(key=lambda g: g[-1])
-    text = 'Groups & Channels ({}):\n\n'.format(len(groups))
-    text += '―――――――――――――――\n\n'.join(
-        '{0}:\n👤 {3}\nTopic: {1}\nID: {2}\n\n'.format(*g) for g in groups)
-    return text
+    if not groups and not mgroups and not channels:
+        return 'Empty List'
+    return None
 
 
 def cmd_me(cmd: IncomingCommand) -> str:
