@@ -50,6 +50,11 @@ def deltabot_init(bot: DeltaBot) -> None:
     global dbot
     dbot = bot
 
+    getdefault('nick', 'SimpleBot')
+    getdefault('host', 'irc.freenode.net')
+    getdefault('port', '6667')
+    getdefault('max_group_size', '20')
+
     bot.filters.register(name=__name__, func=filter_messages)
 
     register_cmd('/join', '/irc_join', cmd_join)
@@ -65,9 +70,9 @@ def deltabot_start(bot: DeltaBot) -> None:
 
     db = get_db(bot)
 
-    nick = getdefault('nick', 'SimpleBot')
-    host = getdefault('host', 'irc.freenode.net')
-    port = int(getdefault('port', '6667'))
+    nick = getdefault('nick')
+    host = getdefault('host')
+    port = int(getdefault('port'))
     irc_bridge = IRCBot(host, port, nick, db, bot)
     Thread(target=run_irc, daemon=True).start()
 
@@ -159,7 +164,7 @@ def cmd_join(cmd: IncomingCommand) -> Optional[str]:
         db.add_channel(cmd.payload)
 
     g = None
-    gsize = int(getdefault('max_group_size', '20'))
+    gsize = int(getdefault('max_group_size'))
     for group in chats:
         contacts = group.get_contacts()
         if sender in contacts:
@@ -241,9 +246,9 @@ def register_cmd(name: str, alt_name: str, func: Callable) -> None:
         dbot.commands.register(name=alt_name, func=func)
 
 
-def getdefault(key: str, value: str) -> str:
+def getdefault(key: str, value: str = None) -> str:
     val = dbot.get(key, scope=__name__)
-    if val is None:
+    if val is None and value is not None:
         dbot.set(key, value, scope=__name__)
         val = value
     return val

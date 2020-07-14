@@ -19,8 +19,8 @@ from deltachat import Chat, Contact, Message
 version = '1.0.0'
 nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
 dbot: DeltaBot = None
-db: DBManager = None
-xmpp_bridge: XMPPBot = None
+db: DBManager
+xmpp_bridge: XMPPBot
 
 
 # ======== Hooks ===============
@@ -55,6 +55,9 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot = bot
     db = get_db(bot)
 
+    getdefault('nick', 'DC-Bridge')
+    getdefault('max_group_size', '20')
+
     bot.filters.register(name=__name__, func=filter_messages)
 
     register_cmd('/join', '/xmpp_join', cmd_join)
@@ -67,7 +70,7 @@ def deltabot_init(bot: DeltaBot) -> None:
 def deltabot_start(bot: DeltaBot) -> None:
     jid = bot.get('jid', scope=__name__)
     password = bot.get('password', scope=__name__)
-    nick = getdefault('nick', 'DC-Bridge')
+    nick = getdefault('nick')
 
     assert jid is not None, 'Missing "{}/jid" setting'.format(__name__)
     assert password is not None, 'Missing "{}/password" setting'.format(
@@ -159,7 +162,7 @@ def cmd_join(cmd: IncomingCommand) -> Optional[str]:
         db.add_channel(cmd.payload)
 
     g = None
-    gsize = int(getdefault('max_group_size', '20'))
+    gsize = int(getdefault('max_group_size'))
     for group in chats:
         contacts = group.get_contacts()
         if sender in contacts:
@@ -252,9 +255,9 @@ def register_cmd(name: str, alt_name: str, func: Callable) -> None:
         dbot.commands.register(name=alt_name, func=func)
 
 
-def getdefault(key: str, value: str) -> str:
+def getdefault(key: str, value: str = None) -> str:
     val = dbot.get(key, scope=__name__)
-    if val is None:
+    if val is None and value is not None:
         dbot.set(key, value, scope=__name__)
         val = value
     return val
