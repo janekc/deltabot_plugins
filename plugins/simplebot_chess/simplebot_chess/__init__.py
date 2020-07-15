@@ -43,6 +43,8 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot = bot
     db = get_db(bot)
 
+    getdefault('theme', '0')
+
     bot.filters.register(name=__name__, func=filter_messages)
 
     register_cmd('/play', '/chess_play', cmd_play)
@@ -98,11 +100,11 @@ def cmd_play(cmd: IncomingCommand) -> Optional[str]:
     if g is None:  # first time playing with p2
         chat = cmd.bot.create_group(
             '♞ {} 🆚 {} [Chess]'.format(p1, p2), [p1, p2])
-        game = chgame.Board(p1=p1, p2=p2).export()
-        db.add_game(p1, p2, chat.id, game)
+        b = chgame.Board(p1=p1, p2=p2, theme=int(getdefault('theme')))
+        db.add_game(p1, p2, chat.id, b.export())
         text = 'Hello {1},\nYou have been invited by {0} to play Chess'
-        text += '\n\n♔ White: {0}\n♚ Black: {1}\n\n'
-        text = text.format(p1, p2)
+        text += '\n\n{} White: {}\n{} Black: {}\n\n'
+        text = text.format(b.theme['P'], p1, b.theme['p'], p2)
         chat.send_text(text + run_turn(chat.id))
     else:
         chat = cmd.bot.get_chat(g['gid'])
@@ -132,10 +134,10 @@ def cmd_new(cmd: IncomingCommand) -> Optional[str]:
         return 'This is not your game group'
     if game['game'] is None:
         p2 = game['p2'] if p1 == game['p1'] else game['p1']
-        b = chgame.Board(p1=p1, p2=p2)
+        b = chgame.Board(p1=p1, p2=p2, theme=int(getdefault('theme')))
         db.set_game(p1, p2, b.export())
-        text = 'Game started!\n♔ White: {}\n♚ Black: {}\n\n'.format(
-            p1, p2)
+        text = 'Game started!\n{} White: {}\n{} Black: {}\n\n'.format(
+            b.theme['P'], p1, b.theme['p'], p2)
         return text + run_turn(cmd.message.chat.id)
     return 'There is a game running already'
 
@@ -150,19 +152,27 @@ def cmd_repeat(cmd: IncomingCommand) -> str:
 
 def run_turn(gid: int) -> str:
     g = db.get_game_by_gid(gid)
-    b = chgame.Board(g['game'])
+    b = chgame.Board(g['game'], theme=int(getdefault('theme')))
     result = b.result()
     if result == '*':
         return "{} {} it's your turn...\n\n{}".format(
-            '♔' if b.turn == b.white else '♚', b.turn, b)
+            b.theme['P'] if b.turn == b.white else b.theme['p'], b.turn, b)
     db.set_game(g['p1'], g['p2'], None)
     if result == '1/2-1/2':
         return '🤝 Game over.\nIt is a draw!\n\n{}'.format(b)
     if result == '1-0':
-        winner = '♔ {}'.format(b.white)
+        winner = '{} {}'.format(b.theme['P'], b.white)
     else:
-        winner = '♚ {}'.format(b.black)
+        winner = '{} {}'.format(b.theme['p'], b.black)
     return '🏆 Game over.\n{} Wins!!!\n\n{}'.format(winner, b)
+
+
+def getdefault(key: str, value: str = None) -> str:
+    val = dbot.get(key, scope=__name__)
+    if val is None and value is not None:
+        dbot.set(key, value, scope=__name__)
+        val = value
+    return val
 
 
 def get_db(bot: DeltaBot) -> DBManager:

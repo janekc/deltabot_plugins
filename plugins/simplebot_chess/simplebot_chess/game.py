@@ -3,33 +3,54 @@ import io
 
 import chess
 import chess.pgn
-# typing
-from typing import List
-# ===
 
 
 ranks = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
 files = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭']
-pieces = {
-    'r': '♜',
-    'n': '♞',
-    'b': '♝',
-    'q': '♛',
-    'k': '♚',
-    'p': '♟',
-    'R': '♖',
-    'N': '♘',
-    'B': '♗',
-    'Q': '♕',
-    'K': '♔',
-    'P': '♙',
-    '.': ' ',
-}
+themes = [
+    {
+        'r': '♜',
+        'n': '♞',
+        'b': '♝',
+        'q': '♛',
+        'k': '♚',
+        'p': '♟',
+        'R': '♖',
+        'N': '♘',
+        'B': '♗',
+        'Q': '♕',
+        'K': '♔',
+        'P': '♙',
+        False: '⬜',
+        True: '⬛',
+    },
+    {
+        'r': '🌋',
+        'n': '🦄',
+        'b': '🧛‍♂️',
+        'q': '🧟‍♀️',
+        'k': '👹',
+        'p': '👿',
+        'R': '🏛️',
+        'N': '🐴',
+        'B': '🧙‍♂️',
+        'Q': '👸',
+        'K': '🤴',
+        'P': '😇',
+        False: '⬜',
+        True: '⬛',
+    },
+]
 
 
 class Board:
     def __init__(self, game: str = None, p1: str = None,
-                 p2: str = None) -> None:
+                 p2: str = None, theme: int = 0) -> None:
+        try:
+            self.theme = themes[theme]
+        except IndexError:
+            self.theme = themes[0]
+
         if game:
             self.game = chess.pgn.read_game(io.StringIO(game))
             self.board = self.game.board()
@@ -47,9 +68,9 @@ class Board:
         for i, row in enumerate(board):
             for j, cell in enumerate(row):
                 if cell == '.':
-                    cell = '⬛' if (i+j+1) % 2 == 0 else '⬜'
+                    cell = self.theme[(i+j+1) % 2 == 0]
                 else:
-                    cell = pieces[cell]
+                    cell = self.theme[cell]
                 board[i][j] = cell
 
         text = '|'.join(ranks) + '\n'
