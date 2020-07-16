@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from deltabot.hookspec import deltabot_hookimpl
-from translators.google import LANGUAGES
 import translators as ts
 # typing
 from deltabot import DeltaBot
@@ -9,9 +8,113 @@ from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
-LANGUAGES = '\n'.join(
-    ['* {}: {}'.format(v, k)
-     for k, v in sorted(LANGUAGES.items(), key=lambda e: e[1])])
+langs = {
+    'Afrikaans': 'af',
+    'Albanian': 'sq',
+    'Amharic': 'am',
+    'Arabic': 'ar',
+    'Armenian': 'hy',
+    'Azerbaijani': 'az',
+    'Basque': 'eu',
+    'Belarusian': 'be',
+    'Bengali': 'bn',
+    'Bosnian': 'bs',
+    'Bulgarian': 'bg',
+    'Catalan': 'ca',
+    'Cebuano': 'ceb',
+    'Chichewa': 'ny',
+    'Chinese (simplified)': 'zh-CN',
+    'Chinese (traditional)': 'zh-TW',
+    'Corsican': 'co',
+    'Croatian': 'hr',
+    'Czech': 'cs',
+    'Danish': 'da',
+    'Dutch': 'nl',
+    'English': 'en',
+    'Esperanto': 'eo',
+    'Estonian': 'et',
+    'Filipino': 'tl',
+    'Finnish': 'fi',
+    'French': 'fr',
+    'Frisian': 'fy',
+    'Galician': 'gl',
+    'Georgian': 'ka',
+    'German': 'de',
+    'Greek': 'el',
+    'Gujarati': 'gu',
+    'Haitian creole': 'ht',
+    'Hausa': 'ha',
+    'Hawaiian': 'haw',
+    'Hebrew': 'iw',
+    'Hindi': 'hi',
+    'Hmong': 'hmn',
+    'Hungarian': 'hu',
+    'Icelandic': 'is',
+    'Igbo': 'ig',
+    'Indonesian': 'id',
+    'Irish': 'ga',
+    'Italian': 'it',
+    'Japanese': 'ja',
+    'Javanese': 'jw',
+    'Kannada': 'kn',
+    'Kazakh': 'kk',
+    'Khmer': 'km',
+    'Korean': 'ko',
+    'Kurdish (kurmanji)': 'ku',
+    'Kyrgyz': 'ky',
+    'Lao': 'lo',
+    'Latin': 'la',
+    'Latvian': 'lv',
+    'Lithuanian': 'lt',
+    'Luxembourgish': 'lb',
+    'Macedonian': 'mk',
+    'Malagasy': 'mg',
+    'Malay': 'ms',
+    'Malayalam': 'ml',
+    'Maltese': 'mt',
+    'Maori': 'mi',
+    'Marathi': 'mr',
+    'Mongolian': 'mn',
+    'Myanmar (burmese)': 'my',
+    'Nepali': 'ne',
+    'Norwegian': 'no',
+    'Pashto': 'ps',
+    'Persian': 'fa',
+    'Polish': 'pl',
+    'Portuguese': 'pt',
+    'Punjabi': 'pa',
+    'Romanian': 'ro',
+    'Russian': 'ru',
+    'Samoan': 'sm',
+    'Scots gaelic': 'gd',
+    'Serbian': 'sr',
+    'Sesotho': 'st',
+    'Shona': 'sn',
+    'Sindhi': 'sd',
+    'Sinhala': 'si',
+    'Slovak': 'sk',
+    'Slovenian': 'sl',
+    'Somali': 'so',
+    'Spanish': 'es',
+    'Sundanese': 'su',
+    'Swahili': 'sw',
+    'Swedish': 'sv',
+    'Tajik': 'tg',
+    'Tamil': 'ta',
+    'Telugu': 'te',
+    'Thai': 'th',
+    'Turkish': 'tr',
+    'Ukrainian': 'uk',
+    'Urdu': 'ur',
+    'Uzbek': 'uz',
+    'Vietnamese': 'vi',
+    'Welsh': 'cy',
+    'Xhosa': 'xh',
+    'Yiddish': 'yi',
+    'Yoruba': 'yo',
+    'Zulu': 'zu',
+    'Auto-detect': 'auto',
+}
 
 
 @deltabot_hookimpl
@@ -22,14 +125,10 @@ def deltabot_init(bot: DeltaBot) -> None:
 def cmd_tr(cmd: IncomingCommand) -> str:
     """Translate text.
 
-    You need to pass origin and destination language. If you send the
-    command along you will get the list of supported languages and their
-    code.
+    You need to pass origin and destination language.
     Example: `/tr en es hello world`
     """
     if cmd.payload:
         l1, l2, text = cmd.payload.split(maxsplit=2)
-        return ts.google(text=text, from_language=l1, to_language=l2,
-                         host='https://translate.google.com')
-    else:
-        return LANGUAGES
+        return ts.google(text, from_language=l1, to_language=l2)
+    return '\n'.join('* {}: {}'.format(k, v) for k, v in langs.items())
