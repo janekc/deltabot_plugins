@@ -34,7 +34,7 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 
 def cmd_memecenter(cmd: IncomingCommand) -> tuple:
-    """Get a random memes from www.memecenter.com
+    """Get random memes from www.memecenter.com
     """
     def _get_image():
         url = 'https://www.memecenter.com'
