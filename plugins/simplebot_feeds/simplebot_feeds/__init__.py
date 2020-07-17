@@ -95,7 +95,7 @@ def cmd_sub(cmd: IncomingCommand) -> str:
 
     if d.entries and feed['latest']:
         latest = tuple(map(int, feed['latest'].split()))
-        text += format_entries(get_old_entries(d, latest)[-5:])
+        text += format_entries(get_old_entries(d.entries, latest)[-5:])
 
     return text
 
