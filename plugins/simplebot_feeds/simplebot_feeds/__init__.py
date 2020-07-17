@@ -52,6 +52,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     db = get_db(bot)
 
     getdefault('delay', 60*5)
+    getdefault('max_feed_count', 1000)
 
     bot.account.add_account_plugin(AccountListener(db, bot))
 
@@ -74,6 +75,8 @@ def cmd_sub(cmd: IncomingCommand) -> str:
     feed = db.get_feed(url)
 
     if not feed:
+        if len(db.get_feeds()) >= int(getdefault('max_feed_count')):
+            return 'Sorry, maximum number of feeds reached'
         d = feedparser.parse(url)
         if d.get('bozo') == 1:
             return 'Invalid feed url: {}'.format(url)
