@@ -38,7 +38,8 @@ class AccountListener:
         channel = self.db.get_channel_by_gid(chat.id)
         if channel:
             me = self.bot.self_contact
-            if me == contact or len(chat.get_contacts()) <= 1:
+            ccount = len(chat.get_contacts()) - 1
+            if me == contact or ccount <= 1:
                 self.db.remove_cchat(chat.id)
                 if next(self.db.get_cchats(channel), None) is None:
                     self.db.remove_channel(channel)
