@@ -9,7 +9,7 @@ from deltabot.hookspec import deltabot_hookimpl
 import feedparser
 import html2text
 # typing
-from typing import Callable, Optional
+from typing import Optional
 from deltabot import DeltaBot
 from deltabot.commands import IncomingCommand
 from deltachat import Chat, Contact, Message
@@ -56,9 +56,9 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.account.add_account_plugin(AccountListener(db, bot))
 
-    register_cmd('/sub', '/feed_sub', cmd_sub)
-    register_cmd('/unsub', '/feed_unsub', cmd_unsub)
-    register_cmd('/list', '/feed_list', cmd_list)
+    dbot.commands.register('/feed_sub', cmd_sub)
+    dbot.commands.register('/feed_unsub', cmd_unsub)
+    dbot.commands.register('/feed_list', cmd_list)
 
 
 @deltabot_hookimpl
@@ -212,13 +212,6 @@ def get_latest_date(entries: list) -> Optional[str]:
         if d:
             dates.append(d)
     return ' '.join(map(str, max(dates))) if dates else None
-
-
-def register_cmd(name: str, alt_name: str, func: Callable) -> None:
-    try:
-        dbot.commands.register(name=name, func=func)
-    except ValueError:
-        dbot.commands.register(name=alt_name, func=func)
 
 
 def getdefault(key: str, value=None) -> str:

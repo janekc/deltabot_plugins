@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from typing import Callable
 import os
 
 from .db import DBManager
@@ -25,10 +24,10 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     getdefault('max_bio_len', '500')
 
-    register_cmd('/join', '/friends_join', cmd_join)
-    register_cmd('/leave', '/friends_leave', cmd_leave)
-    register_cmd('/list', '/friends_list', cmd_list)
-    register_cmd('/me', '/friends_me', cmd_me)
+    dbot.commands.register('/friends_join', cmd_join)
+    dbot.commands.register('/friends_leave', cmd_leave)
+    dbot.commands.register('/friends_list', cmd_list)
+    dbot.commands.register('/friends_me', cmd_me)
 
 
 # ======== Commands ===============
@@ -80,13 +79,6 @@ def cmd_me(cmd: IncomingCommand) -> str:
 
 
 # ======== Utilities ===============
-
-def register_cmd(name: str, alt_name: str, func: Callable) -> None:
-    try:
-        dbot.commands.register(name=name, func=func)
-    except ValueError:
-        dbot.commands.register(name=alt_name, func=func)
-
 
 def getdefault(key: str, value: str = None) -> str:
     val = dbot.get(key, scope=__name__)

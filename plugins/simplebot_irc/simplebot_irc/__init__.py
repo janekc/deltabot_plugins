@@ -9,7 +9,7 @@ from .database import DBManager
 from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 # typing
-from typing import Callable, Generator, Optional
+from typing import Generator, Optional
 from deltabot import DeltaBot
 from deltabot.commands import IncomingCommand
 from deltachat import Chat, Contact, Message
@@ -58,11 +58,11 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    register_cmd('/join', '/irc_join', cmd_join)
-    register_cmd('/remove', '/irc_remove', cmd_remove)
-    register_cmd('/topic', '/irc_topic', cmd_topic)
-    register_cmd('/members', '/irc_members', cmd_members)
-    register_cmd('/nick', '/irc_nick', cmd_nick)
+    dbot.commands.register('/irc_join', cmd_join)
+    dbot.commands.register('/irc_remove', cmd_remove)
+    dbot.commands.register('/irc_topic', cmd_topic)
+    dbot.commands.register('/irc_members', cmd_members)
+    dbot.commands.register('/irc_nick', cmd_nick)
 
 
 @deltabot_hookimpl
@@ -240,13 +240,6 @@ def run_irc() -> None:
         except Exception as ex:
             dbot.logger.exception('Error on IRC bridge: ', ex)
             sleep(5)
-
-
-def register_cmd(name: str, alt_name: str, func: Callable) -> None:
-    try:
-        dbot.commands.register(name=name, func=func)
-    except ValueError:
-        dbot.commands.register(name=alt_name, func=func)
 
 
 def getdefault(key: str, value: str = None) -> str:

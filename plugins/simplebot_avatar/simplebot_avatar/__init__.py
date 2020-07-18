@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from urllib.parse import quote_plus
 import tempfile
+import re
+import mimetypes
 
 from deltabot.hookspec import deltabot_hookimpl
 import bs4
@@ -53,7 +55,29 @@ def get_message(text: str, generator: str) -> tuple:
     url += 'avatar.php?seed=' + quote_plus(text)
     with requests.get(url, headers=HEADERS) as r:
         r.raise_for_status()
-        fd, path = tempfile.mkstemp(prefix='catvatar-', suffix='.png')
+        ext = get_ext(r) or '.png'
+        fd, path = tempfile.mkstemp(prefix='catvatar-', suffix=ext)
         with open(fd, 'wb') as f:
             f.write(r.content)
     return (text, path)
+
+
+def get_ext(r) -> str:
+    d = r.headers.get('content-disposition')
+    if d is not None and re.findall("filename=(.+)", d):
+        fname = re.findall(
+            "filename=(.+)", d)[0].strip('"')
+    else:
+        fname = r.url.split('/')[-1].split('?')[0].split('#')[0]
+    if '.' in fname:
+        ext = '.' + fname.rsplit('.', maxsplit=1)[-1]
+    else:
+        ctype = r.headers.get(
+            'content-type', '').split(';')[0].strip().lower()
+        if 'text/plain' == ctype:
+            ext = '.txt'
+        elif 'image/jpeg' == ctype:
+            ext = '.jpg'
+        else:
+            ext = mimetypes.guess_extension(ctype)
+    return ext

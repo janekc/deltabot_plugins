@@ -6,7 +6,7 @@ from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 import simplebot_reversi.reversi as reversi
 # typing
-from typing import Optional, Callable
+from typing import Optional
 from deltabot import DeltaBot
 from deltabot.commands import IncomingCommand
 from deltachat import Chat, Contact, Message
@@ -45,10 +45,10 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    register_cmd('/play', '/reversi_play', cmd_play)
-    register_cmd('/surrender', '/reversi_surrender', cmd_surrender)
-    register_cmd('/new', '/reversi_new', cmd_new)
-    register_cmd('/repeat', '/reversi_repeat', cmd_repeat)
+    dbot.commands.register('/reversi_play', cmd_play)
+    dbot.commands.register('/reversi_surrender', cmd_surrender)
+    dbot.commands.register('/reversi_new', cmd_new)
+    dbot.commands.register('/reversi_repeat', cmd_repeat)
 
     bot.account.add_account_plugin(AccountListener(db, bot))
 
@@ -189,10 +189,3 @@ def get_db(bot: DeltaBot) -> DBManager:
     if not os.path.exists(path):
         os.makedirs(path)
     return DBManager(os.path.join(path, 'sqlite.db'))
-
-
-def register_cmd(name: str, alt_name: str, func: Callable) -> None:
-    try:
-        dbot.commands.register(name=name, func=func)
-    except ValueError:
-        dbot.commands.register(name=alt_name, func=func)

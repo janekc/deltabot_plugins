@@ -8,7 +8,7 @@ from .db import DBManager, Status
 from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 # typing
-from typing import Callable, Generator, Optional
+from typing import Generator, Optional
 from deltabot import DeltaBot
 from deltabot.commands import IncomingCommand
 from deltachat import Chat, Contact, Message
@@ -91,22 +91,22 @@ def deltabot_init(bot: DeltaBot) -> None:
     bot.filters.register(name=__name__, func=filter_messages)
 
     if allow_mgroups == '1':
-        register_cmd('/mega', '/group_mega', cmd_mega)
-    register_cmd('/nick', '/group_nick', cmd_nick)
-    register_cmd('/id', '/group_id', cmd_id)
-    register_cmd('/list', '/group_list', cmd_list)
-    register_cmd('/me', '/group_me', cmd_me)
-    register_cmd('/members', '/group_members', cmd_members)
-    register_cmd('/join', '/group_join', cmd_join)
-    register_cmd('/topic', '/group_topic', cmd_topic)
-    register_cmd('/remove', '/group_remove', cmd_remove)
+        dbot.commands.register('/group_mega', cmd_mega)
+    dbot.commands.register('/group_nick', cmd_nick)
+    dbot.commands.register('/group_id', cmd_id)
+    dbot.commands.register('/group_list', cmd_list)
+    dbot.commands.register('/group_me', cmd_me)
+    dbot.commands.register('/group_members', cmd_members)
+    dbot.commands.register('/group_join', cmd_join)
+    dbot.commands.register('/group_topic', cmd_topic)
+    dbot.commands.register('/group_remove', cmd_remove)
     if allow_channels == '1':
-        register_cmd('/channel', '/group_channel', cmd_channel)
-    # register_cmd('/public', '/group_public', cmd_public)
-    # register_cmd('/private', '/group_private', cmd_private)
-    # register_cmd('/name', '/group_name', cmd_name)
-    # register_cmd('/image', '/group_image', cmd_image)
-    # register_cmd('/chanimage', '/group_chanimage', cmd_chanimage)
+        dbot.commands.register('/group_chan', cmd_chan)
+    # dbot.commands.register('/group_public', cmd_public)
+    # dbot.commands.register('/group_private', cmd_private)
+    # dbot.commands.register('/group_name', cmd_name)
+    # dbot.commands.register('/group_image', cmd_image)
+    # dbot.commands.register('/group_chanimage', cmd_chanimage)
 
     bot.account.add_account_plugin(AccountListener(db, bot))
 
@@ -529,7 +529,7 @@ def cmd_remove(cmd: IncomingCommand) -> Optional[str]:
     return 'User "{}" is not member of this group'.format(cmd.payload)
 
 
-def cmd_channel(cmd: IncomingCommand) -> Optional[str]:
+def cmd_chan(cmd: IncomingCommand) -> Optional[str]:
     """Create a new channel with the given name.
     """
     if not cmd.payload:
@@ -543,13 +543,6 @@ def cmd_channel(cmd: IncomingCommand) -> Optional[str]:
 
 
 # ======== Utilities ===============
-
-def register_cmd(name: str, alt_name: str, func: Callable) -> None:
-    try:
-        dbot.commands.register(name=name, func=func)
-    except ValueError:
-        dbot.commands.register(name=alt_name, func=func)
-
 
 def getdefault(key: str, value: str = None) -> str:
     val = dbot.get(key, scope=__name__)

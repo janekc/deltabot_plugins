@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import tempfile
+import re
+import mimetypes
 
 from deltabot.hookspec import deltabot_hookimpl
 import bs4
@@ -64,17 +66,39 @@ def get_meme(url: str) -> tuple:
             r.raise_for_status()
             if len(r.content) <= max_meme_size:
                 img = r.content
+                ext = get_ext(r) or '.jpg'
                 break
             if not img or len(img) > len(r.content):
                 img = r.content
+                ext = get_ext(r) or '.jpg'
 
-    ext = img_url.split('/')[-1].split('?')[0].split('#')[0].split('.')[-1]
-    fd, path = tempfile.mkstemp(prefix='meme-', suffix='.'+ext)
+    fd, path = tempfile.mkstemp(prefix='meme-', suffix=ext)
     with open(fd, 'wb') as f:
         f.write(img)
 
     text = '{}\n\n{}'.format(img_desc, img_url)
     return (text, path)
+
+
+def get_ext(r) -> str:
+    d = r.headers.get('content-disposition')
+    if d is not None and re.findall("filename=(.+)", d):
+        fname = re.findall(
+            "filename=(.+)", d)[0].strip('"')
+    else:
+        fname = r.url.split('/')[-1].split('?')[0].split('#')[0]
+    if '.' in fname:
+        ext = '.' + fname.rsplit('.', maxsplit=1)[-1]
+    else:
+        ctype = r.headers.get(
+            'content-type', '').split(';')[0].strip().lower()
+        if 'text/plain' == ctype:
+            ext = '.txt'
+        elif 'image/jpeg' == ctype:
+            ext = '.jpg'
+        else:
+            ext = mimetypes.guess_extension(ctype)
+    return ext
 
 
 def getdefault(key: str, value=None) -> str:

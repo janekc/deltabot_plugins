@@ -132,8 +132,7 @@ def _cmd_img(cmd: IncomingCommand, img_count: int = None) -> None:
         with requests.get(img_url, headers=HEADERS) as r:
             r.raise_for_status()
             msg = Message.new_empty(cmd.bot.account, 'file')
-            ext = get_ext(r) or '.jpg'
-            msg.set_file(save_file(r.content, ext))
+            msg.set_file(save_file(r.content, get_ext(r) or '.jpg'))
             chat.send_msg(msg)
 
 
@@ -254,17 +253,16 @@ def process_html(r) -> str:
 
 def process_file(r) -> tuple:
     max_size = int(getdefault('max_size'))
-    chunks = b''
+    data = b''
     size = 0
     for chunk in r.iter_content(chunk_size=10240):
-        chunks += chunk
+        data += chunk
         size += len(chunk)
         if size > max_size:
             msg = 'Only files smaller than {} Bytes are allowed'
             raise ValueError(msg.format(max_size))
 
-    ext = get_ext(r)
-    return (chunks, ext)
+    return (data, get_ext(r))
 
 
 def get_ext(r) -> str:

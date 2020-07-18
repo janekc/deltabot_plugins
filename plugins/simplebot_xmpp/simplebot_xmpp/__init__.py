@@ -9,7 +9,7 @@ from .database import DBManager
 from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 # typing
-from typing import Callable, Optional, Generator
+from typing import Optional, Generator
 from deltabot import DeltaBot
 from deltabot.commands import IncomingCommand
 from deltachat import Chat, Contact, Message
@@ -60,10 +60,10 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    register_cmd('/join', '/xmpp_join', cmd_join)
-    register_cmd('/remove', '/xmpp_remove', cmd_remove)
-    register_cmd('/members', '/xmpp_members', cmd_members)
-    register_cmd('/nick', '/xmpp_nick', cmd_nick)
+    dbot.commands.register('/xmpp_join', cmd_join)
+    dbot.commands.register('/xmpp_remove', cmd_remove)
+    dbot.commands.register('/xmpp_members', cmd_members)
+    dbot.commands.register('/xmpp_nick', cmd_nick)
 
 
 @deltabot_hookimpl
@@ -246,13 +246,6 @@ def listen_to_xmpp(jid: str, password: str, nick: str,
 def get_cchats(channel: str) -> Generator:
     for gid in db.get_cchats(channel):
         yield dbot.get_chat(gid)
-
-
-def register_cmd(name: str, alt_name: str, func: Callable) -> None:
-    try:
-        dbot.commands.register(name=name, func=func)
-    except ValueError:
-        dbot.commands.register(name=alt_name, func=func)
 
 
 def getdefault(key: str, value: str = None) -> str:
