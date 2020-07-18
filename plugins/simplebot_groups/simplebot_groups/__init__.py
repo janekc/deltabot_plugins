@@ -359,7 +359,7 @@ def cmd_join(cmd: IncomingCommand) -> Optional[str]:
         data = rmprefix(cmd.payload, GROUP_URL).split('-')
         if len(data) == 2:
             pid = data[0]
-            gid = int(data[-1])
+        gid = int(data[-1])
         gr = db.get_group(gid)
         if gr and (gr['status'] == Status.PUBLIC or gr['pid'] == pid):
             g = cmd.bot.get_chat(gr['id'])
