@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
 from threading import Thread
 from time import sleep
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 import os
 
 from .db import DBManager
 from deltabot.hookspec import deltabot_hookimpl
 import feedparser
 import html2text
-
-if TYPE_CHECKING:
-    from deltabot import DeltaBot
-    from deltabot.bot import Replies
-    from deltabot.commands import IncomingCommand
-    from deltachat import Chat, Contact
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
+from deltachat import Chat, Contact
 
 
 version = '1.0.0'

@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 from urllib.request import urlopen
-from typing import TYPE_CHECKING
 import io
 
 from deltabot.hookspec import deltabot_hookimpl
 import xkcd
-
-if TYPE_CHECKING:
-    from deltabot import DeltaBot
-    from deltabot.bot import Replies
-    from deltabot.commands import IncomingCommand
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'

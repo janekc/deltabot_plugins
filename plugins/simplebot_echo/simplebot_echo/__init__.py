@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-from typing import TYPE_CHECKING
-
 from deltabot.hookspec import deltabot_hookimpl
-
-if TYPE_CHECKING:
-    from deltabot import DeltaBot
-    from deltabot.bot import Replies
-    from deltabot.commands import IncomingCommand
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*
-from typing import TYPE_CHECKING
 import io
 import re
 import mimetypes
@@ -7,11 +6,10 @@ import mimetypes
 from deltabot.hookspec import deltabot_hookimpl
 import bs4
 import requests
-
-if TYPE_CHECKING:
-    from deltabot import DeltaBot
-    from deltabot.bot import Replies
-    from deltabot.commands import IncomingCommand
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'

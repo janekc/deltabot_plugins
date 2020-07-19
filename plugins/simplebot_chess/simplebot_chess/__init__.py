@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
-from typing import TYPE_CHECKING
 import os
 
 from .db import DBManager
 from deltabot.hookspec import deltabot_hookimpl
 import simplebot_chess.game as chgame
-
-if TYPE_CHECKING:
-    from deltabot import DeltaBot
-    from deltabot.bot import Replies
-    from deltabot.commands import IncomingCommand
-    from deltachat import Chat, Contact, Message
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
+from deltachat import Chat, Contact, Message
 
 
 version = '1.0.0'

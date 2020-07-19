@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import TYPE_CHECKING, Generator
+from typing import Generator
 import os
 import random
 import re
@@ -7,12 +7,11 @@ import string
 
 from .db import DBManager, Status
 from deltabot.hookspec import deltabot_hookimpl
-
-if TYPE_CHECKING:
-    from deltabot import DeltaBot
-    from deltabot.bot import Replies
-    from deltabot.commands import IncomingCommand
-    from deltachat import Chat, Contact, Message
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
+from deltachat import Chat, Contact, Message
 
 
 version = '1.0.0'

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from urllib.parse import quote_plus, unquote_plus, quote
-from typing import TYPE_CHECKING
 import tempfile
 import io
 import re
@@ -13,11 +12,10 @@ from readability import Document
 from html2text import html2text
 import bs4
 import requests
-
-if TYPE_CHECKING:
-    from deltabot import DeltaBot
-    from deltabot.bot import Replies
-    from deltabot.commands import IncomingCommand
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
