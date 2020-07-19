@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+from typing import TYPE_CHECKING
+
 from deltabot.hookspec import deltabot_hookimpl
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -14,10 +17,10 @@ def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name="/echo", func=cmd_echo)
 
 
-def cmd_echo(cmd: IncomingCommand) -> str:
+def cmd_echo(command: IncomingCommand, replies: Replies) -> None:
     """Echoes back received text.
 
     To use it you can simply send a message starting with
     the command '/echo'. Example: `/echo hello world`
     """
-    return cmd.payload or 'echo'
+    replies.add(text=command.payload or 'echo')

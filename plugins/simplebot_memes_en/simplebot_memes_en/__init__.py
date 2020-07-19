@@ -1,15 +1,17 @@
-# -*- coding: utf-8 -*-
-import tempfile
+# -*- coding: utf-8 -*
+from typing import TYPE_CHECKING
+import io
 import re
 import mimetypes
 
 from deltabot.hookspec import deltabot_hookimpl
 import bs4
 import requests
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -34,11 +36,10 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 # ======== Commands ===============
 
-
-def cmd_memecenter(cmd: IncomingCommand) -> tuple:
+def cmd_memecenter(command: IncomingCommand, replies: Replies) -> None:
     """Get random memes from www.memecenter.com
     """
-    def _get_image():
+    def _get_image() -> tuple:
         url = 'https://www.memecenter.com'
         with requests.get(url, headers=HEADERS) as r:
             r.raise_for_status()
@@ -51,12 +52,12 @@ def cmd_memecenter(cmd: IncomingCommand) -> tuple:
         img_url = soup.find('div', id='fdc_download').a['href']
         return (img_desc, img_url)
 
-    return get_meme(_get_image)
+    replies.add(**get_meme(_get_image))
 
 
 # ======== Utilities ===============
 
-def get_meme(get_image) -> tuple:
+def get_meme(get_image) -> dict:
     img = b''
     max_meme_size = int(getdefault('max_meme_size'))
     for i in range(10):
@@ -71,12 +72,8 @@ def get_meme(get_image) -> tuple:
                 img = r.content
                 ext = get_ext(r) or '.jpg'
 
-    fd, path = tempfile.mkstemp(prefix='meme-', suffix=ext)
-    with open(fd, 'wb') as f:
-        f.write(img)
-
     text = '{}\n\n{}'.format(img_desc, img_url)
-    return (text, path)
+    return dict(text=text, filename='meme'+ext, bytefile=io.BytesIO(img))
 
 
 def get_ext(r) -> str:

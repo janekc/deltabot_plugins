@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 from urllib.request import urlopen
-import tempfile
+from typing import TYPE_CHECKING
+import io
 
 from deltabot.hookspec import deltabot_hookimpl
 import xkcd
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -23,26 +25,27 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 # ======== Commands ===============
 
-def cmd_xkcd(cmd: IncomingCommand) -> tuple:
+def cmd_xkcd(command: IncomingCommand, replies: Replies) -> None:
     """Show the comic with the given number or a ramdom comic if no number is provided.
     """
-    return get_message(xkcd.getComic(
-        int(cmd.payload)) if cmd.payload else xkcd.getRandomComic())
+    if command.payload:
+        comic = xkcd.getComic(int(command.payload))
+    else:
+        comic = xkcd.getRandomComic()
+    replies.add(**get_reply(comic))
 
 
-def cmd_latest(cmd: IncomingCommand) -> tuple:
+def cmd_latest(command: IncomingCommand, replies: Replies) -> None:
     """Get the latest comic released in xkcd.com.
     """
-    return get_message(xkcd.getLatestComic())
+    replies.add(**get_reply(xkcd.getLatestComic()))
 
 
 # ======== Utilities ===============
 
-def get_message(comic: xkcd.Comic) -> tuple:
+def get_reply(comic: xkcd.Comic) -> dict:
     image = urlopen(comic.imageLink).read()
-    fd, path = tempfile.mkstemp(prefix='xkcd-', suffix=comic.imageName)
-    with open(fd, 'wb') as f:
-        f.write(image)
     text = '#{} - {}\n\n{}'.format(
         comic.number, comic.title, comic.altText)
-    return (text, path)
+    return dict(text=text, filename=comic.imageName,
+                bytefile=io.BytesIO(image))

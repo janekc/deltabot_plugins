@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
+from typing import TYPE_CHECKING
 import os
 
 from .db import DBManager
 from deltabot.hookspec import deltabot_hookimpl
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -32,50 +34,55 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 # ======== Commands ===============
 
-def cmd_join(cmd: IncomingCommand) -> str:
+def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     """Add you to the list or update your bio.
     """
-    if not cmd.payload:
-        return 'You must provide a biography'
+    if not command.payload:
+        replies.add(text='You must provide a biography')
+        return
 
-    text = ' '.join(cmd.payload.split())
+    text = ' '.join(command.payload.split())
     max_len = int(getdefault('max_bio_len'))
     if len(text) > max_len:
         text = text[:max_len] + '...'
 
-    addr = cmd.message.get_sender_contact().addr
+    addr = command.message.get_sender_contact().addr
     exists = db.get_bio(addr)
     db.update_bio(addr, text)
     if exists:
-        return 'Bio updated'
-    return 'Added to the list'
+        replies.add(text='Bio updated')
+    else:
+        replies.add(text='Added to the list')
 
 
-def cmd_leave(cmd: IncomingCommand) -> str:
+def cmd_leave(command: IncomingCommand, replies: Replies) -> None:
     """Remove you from the list.
     """
-    addr = cmd.message.get_sender_contact().addr
+    addr = command.message.get_sender_contact().addr
     if db.get_bio(addr) is None:
-        return 'You are not in the list yet'
-    db.remove_user(addr)
-    return 'You was removed from the list'
+        replies.add(text='You are not in the list yet')
+    else:
+        db.remove_user(addr)
+        replies.add(text='You was removed from the list')
 
 
-def cmd_list(cmd: IncomingCommand) -> str:
+def cmd_list(command: IncomingCommand, replies: Replies) -> None:
     """Get the list of users and their biography.
     """
     users = ['{}:\n{}'.format(f['addr'], f['bio']) for f in db.get_users()]
-    return '\n\n―――――――――――――――\n\n'.join(users) or 'Empty List'
+    text = '\n\n―――――――――――――――\n\n'.join(users) or 'Empty List'
+    replies.add(text=text)
 
 
-def cmd_me(cmd: IncomingCommand) -> str:
+def cmd_me(command: IncomingCommand, replies: Replies) -> None:
     """See your biography.
     """
-    addr = cmd.message.get_sender_contact().addr
+    addr = command.message.get_sender_contact().addr
     bio = db.get_bio(addr)
     if bio is None:
-        return 'You have not set a biography yet'
-    return '{}:\n{}'.format(addr, bio)
+        replies.add(text='You have not set a biography yet')
+    else:
+        replies.add(text='{}:\n{}'.format(addr, bio))
 
 
 # ======== Utilities ===============

@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
+from typing import TYPE_CHECKING
+
 from deltabot.hookspec import deltabot_hookimpl
 import translators as ts
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -122,13 +125,14 @@ def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name="/tr", func=cmd_tr)
 
 
-def cmd_tr(cmd: IncomingCommand) -> str:
+def cmd_tr(command: IncomingCommand, replies: Replies) -> None:
     """Translate text.
 
     You need to pass origin and destination language.
     Example: `/tr en es hello world`
     """
-    if cmd.payload:
-        l1, l2, text = cmd.payload.split(maxsplit=2)
+    if command.payload:
+        l1, l2, text = command.payload.split(maxsplit=2)
         return ts.google(text, from_language=l1, to_language=l2)
-    return '\n'.join('* {}: {}'.format(k, v) for k, v in langs.items())
+    replies.add(
+        text='\n'.join('* {}: {}'.format(k, v) for k, v in langs.items()))

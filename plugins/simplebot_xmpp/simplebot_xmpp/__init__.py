@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from threading import Thread, Event
+from typing import TYPE_CHECKING, Generator
 import asyncio
 import os
 import re
@@ -7,12 +8,12 @@ import re
 from .xmpp import XMPPBot
 from .database import DBManager
 from deltabot.hookspec import deltabot_hookimpl
-# typing
-from typing import Optional, Generator
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-from deltachat import Chat, Contact, Message
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
+    from deltachat import Chat, Contact, Message
 
 
 version = '1.0.0'
@@ -71,38 +72,38 @@ def deltabot_member_removed(self, chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(msg: Message) -> Optional[str]:
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process messages sent to XMPP channels.
     """
-    chan = db.get_channel_by_gid(msg.chat.id)
+    chan = db.get_channel_by_gid(message.chat.id)
     if not chan:
-        return None
+        return
 
-    if not msg.text or msg.filename:
-        return 'Unsupported message'
+    if not message.text or message.filename:
+        replies.add(text='Unsupported message')
+        return
 
-    nick = db.get_nick(msg.get_sender_contact().addr)
-    text = '{}[dc]:\n{}'.format(nick, msg.text)
+    nick = db.get_nick(message.get_sender_contact().addr)
+    text = '{}[dc]:\n{}'.format(nick, message.text)
 
     dbot.logger.debug('Sending message to XMPP: %r', text)
     xmpp_bridge.send_message(chan, text, mtype='groupchat')
     for g in get_cchats(chan):
-        if g.id != msg.chat.id:
-            g.send_text(text)
-
-    return None
+        if g.id != message.chat.id:
+            replies.add(text=text, chat=g)
 
 
 # ======== Commands ===============
 
-def cmd_members(cmd: IncomingCommand) -> str:
+def cmd_members(command: IncomingCommand, replies: Replies) -> None:
     """Show list of XMPP channel members.
     """
-    me = cmd.bot.self_contact
+    me = command.bot.self_contact
 
-    chan = db.get_channel_by_gid(cmd.message.chat.id)
+    chan = db.get_channel_by_gid(command.message.chat.id)
     if not chan:
-        return 'This is not an XMPP channel'
+        replies.add(text='This is not an XMPP channel')
+        return
 
     members = 'Members:\n'
     for g in get_cchats(chan):
@@ -114,82 +115,88 @@ def cmd_members(cmd: IncomingCommand) -> str:
         if m != xmpp_bridge.nick:
             members += '• {}[xmpp]\n'.format(m)
 
-    return members
+    replies.add(text=members)
 
 
-def cmd_nick(cmd: IncomingCommand) -> str:
+def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
     """Set your XMPP nick or display your current nick if no new nick is given.
     """
-    addr = cmd.message.get_sender_contact().addr
-    new_nick = ' '.join(cmd.payload.split())
+    addr = command.message.get_sender_contact().addr
+    new_nick = ' '.join(command.payload.split())
     if new_nick:
         if not nick_re.match(new_nick):
-            return '** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters'
-        if db.get_addr(new_nick):
-            return '** Nick already taken'
-        db.set_nick(addr, new_nick)
-        return '** Nick: {}'.format(new_nick)
-    return '** Nick: {}'.format(db.get_nick(addr))
+            replies.add(text='** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters')
+        elif db.get_addr(new_nick):
+            replies.add(text='** Nick already taken')
+        else:
+            db.set_nick(addr, new_nick)
+            replies.add(text='** Nick: {}'.format(new_nick))
+    else:
+        replies.add(text='** Nick: {}'.format(db.get_nick(addr)))
 
 
-def cmd_join(cmd: IncomingCommand) -> Optional[str]:
+def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     """Join the given XMPP channel.
     """
-    sender = cmd.message.get_sender_contact()
-    if not cmd.payload:
-        return None
-    if not db.is_whitelisted(cmd.payload):
-        return "That channel isn't in the whitelist"
+    sender = command.message.get_sender_contact()
+    if not command.payload:
+        return
+    if not db.is_whitelisted(command.payload):
+        replies.add(text="That channel isn't in the whitelist")
+        return
 
-    chats = get_cchats(cmd.payload)
-    if not db.channel_exists(cmd.payload):
-        xmpp_bridge.join_channel(cmd.payload)
-        db.add_channel(cmd.payload)
+    chats = get_cchats(command.payload)
+    if not db.channel_exists(command.payload):
+        xmpp_bridge.join_channel(command.payload)
+        db.add_channel(command.payload)
 
     g = None
     gsize = int(getdefault('max_group_size'))
     for group in chats:
         contacts = group.get_contacts()
         if sender in contacts:
-            group.send_text('You are already a member of this channel')
-            return None
+            replies.add(text='You are already a member of this channel',
+                        chat=group)
+            return
         if len(contacts) < gsize:
             g = group
             gsize = len(contacts)
     if g is None:
-        g = dbot.create_group(cmd.payload, [sender])
-        db.add_cchat(g.id, cmd.payload)
+        g = dbot.create_group(command.payload, [sender])
+        db.add_cchat(g.id, command.payload)
     else:
         add_contact(g, sender)
 
     nick = db.get_nick(sender.addr)
-    g.send_text('** You joined {} as {}'.format(cmd.payload, nick))
-    return None
+    replies.add(text='** You joined {} as {}'.format(
+        command.payload, nick))
 
 
-def cmd_remove(cmd: IncomingCommand) -> Optional[str]:
+def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
     """Remove the DC member with the given nick from the XMPP channel, if no nick is given remove yourself.
     """
-    sender = cmd.message.get_sender_contact()
+    sender = command.message.get_sender_contact()
 
-    text = cmd.payload
-    channel = db.get_channel_by_gid(cmd.message.chat.id)
+    text = command.payload
+    channel = db.get_channel_by_gid(command.message.chat.id)
     if not channel:
-        args = cmd.payload.split(maxsplit=1)
+        args = command.payload.split(maxsplit=1)
         channel = args[0]
         text = args[1] if len(args) == 2 else ''
         for g in get_cchats(channel):
             if sender in g.get_contacts():
                 break
         else:
-            return 'You are not a member of that channel'
+            replies.add(text='You are not a member of that channel')
+            return
 
     if not text:
         text = sender.addr
     if '@' not in text:
         t = db.get_addr(text)
         if not t:
-            return 'Unknow user: {}'.format(text)
+            replies.add(text='Unknow user: {}'.format(text))
+            return
         text = t
 
     for g in get_cchats(channel):
@@ -202,12 +209,10 @@ def cmd_remove(cmd: IncomingCommand) -> Optional[str]:
                 nick = db.get_nick(c.addr)
                 text = '** {} removed by {}'.format(nick, s_nick)
                 for g in get_cchats(channel):
-                    g.send_text(text)
+                    replies.add(text=text, chat=g)
                 text = 'Removed from {} by {}'.format(channel, s_nick)
                 dbot.get_chat(c).send_text(text)
-                return None
-
-    return None
+                return
 
 
 # ======== Utilities ===============

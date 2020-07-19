@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 from urllib.parse import quote_plus
-import tempfile
+from typing import TYPE_CHECKING
+import io
 import re
 import mimetypes
 
 from deltabot.hookspec import deltabot_hookimpl
 import bs4
 import requests
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -28,22 +30,21 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 # ======== Commands ===============
 
-
-def cmd_avatar(cmd: IncomingCommand) -> tuple:
+def cmd_avatar(command: IncomingCommand, replies: Replies) -> None:
     """Generate a cat avatar based on the given text, if no text is given a random avatar is generated.
     """
-    return get_message(cmd.payload, '2016_cat-generator')
+    replies.add(**get_message(command.payload, '2016_cat-generator'))
 
 
-def cmd_bird(cmd: IncomingCommand) -> tuple:
+def cmd_bird(command: IncomingCommand, replies: Replies) -> None:
     """Generate a bird avatar based on the given text, if no text is given a random avatar is generated.
     """
-    return get_message(cmd.payload, '2019_bird-generator')
+    replies.add(**get_message(command.payload, '2019_bird-generator'))
 
 
 # ======== Utilities ===============
 
-def get_message(text: str, generator: str) -> tuple:
+def get_message(text: str, generator: str) -> dict:
     url = 'https://www.peppercarrot.com/extras/html/{}/'.format(generator)
     if not text:
         with requests.get(url, headers=HEADERS) as r:
@@ -56,10 +57,8 @@ def get_message(text: str, generator: str) -> tuple:
     with requests.get(url, headers=HEADERS) as r:
         r.raise_for_status()
         ext = get_ext(r) or '.png'
-        fd, path = tempfile.mkstemp(prefix='catvatar-', suffix=ext)
-        with open(fd, 'wb') as f:
-            f.write(r.content)
-    return (text, path)
+        return dict(text=text, filename='catvatar'+ext,
+                    bytefile=io.BytesIO(r.content))
 
 
 def get_ext(r) -> str:

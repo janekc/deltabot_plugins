@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
+from typing import TYPE_CHECKING
+
 from deltabot.hookspec import deltabot_hookimpl
 import requests
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ===
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -35,61 +38,61 @@ def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name="/cartv_ha", func=cmd_ha)
 
 
-def cmd_cartv(cmd: IncomingCommand) -> str:
+def cmd_cartv(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera de todos los canales de la TV cubana.
     """
     text = ''
     for chan in channels.keys():
         text += get_channel(chan) + '\n\n'
-    return text
+    replies.add(text=text)
 
 
-def cmd_cv(cmd: IncomingCommand) -> str:
+def cmd_cv(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera del canal Cubavisión.
     """
-    return get_channel('Cubavisión')
+    replies.add(text=get_channel('Cubavisión'))
 
 
-def cmd_tr(cmd: IncomingCommand) -> str:
+def cmd_tr(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera del canal Tele Rebelde.
     """
-    return get_channel('Tele Rebelde')
+    replies.add(text=get_channel('Tele Rebelde'))
 
 
-def cmd_ed(cmd: IncomingCommand) -> str:
+def cmd_ed(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera del canal Educativo.
     """
-    return get_channel('Educativo')
+    replies.add(text=get_channel('Educativo'))
 
 
-def cmd_ed2(cmd: IncomingCommand) -> str:
+def cmd_ed2(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera del canal Educativo 2.
     """
-    return get_channel('Educativo 2')
+    replies.add(text=get_channel('Educativo 2'))
 
 
-def cmd_mv(cmd: IncomingCommand) -> str:
+def cmd_mv(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera del canal Multivisión.
     """
-    return get_channel('Multivisión')
+    replies.add(text=get_channel('Multivisión'))
 
 
-def cmd_cl(cmd: IncomingCommand) -> str:
+def cmd_cl(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera del canal Clave.
     """
-    return get_channel('Clave')
+    replies.add(text=get_channel('Clave'))
 
 
-def cmd_ca(cmd: IncomingCommand) -> str:
+def cmd_ca(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera del canal Caribe.
     """
-    return get_channel('Caribe')
+    replies.add(text=get_channel('Caribe'))
 
 
-def cmd_ha(cmd: IncomingCommand) -> str:
+def cmd_ha(command: IncomingCommand, replies: Replies) -> None:
     """Muestra la cartelera del canal Habana.
     """
-    return get_channel('Habana')
+    replies.add(text=get_channel('Habana'))
 
 
 # ======== Utilities ===============

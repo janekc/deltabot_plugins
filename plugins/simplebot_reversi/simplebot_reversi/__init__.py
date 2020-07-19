@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
+from typing import TYPE_CHECKING
 import os
 
 from .database import DBManager
 from deltabot.hookspec import deltabot_hookimpl
 import simplebot_reversi.reversi as reversi
-# typing
-from typing import Optional
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-from deltachat import Chat, Contact, Message
-# ===
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
+    from deltachat import Chat, Contact, Message
 
 
 version = '1.0.0'
@@ -47,84 +48,83 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(msg: Message) -> Optional[str]:
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Reversi game groups
     """
-    game = db.get_game_by_gid(msg.chat.id)
-    if game is None or game['board'] is None or len(msg.text) != 2:
-        return None
+    game = db.get_game_by_gid(message.chat.id)
+    if game is None or game['board'] is None or len(message.text) != 2:
+        return
 
     b = reversi.Board(game['board'])
-    player = msg.get_sender_contact().addr
+    player = message.get_sender_contact().addr
     player = reversi.BLACK if game['black'] == player else reversi.WHITE
     if b.turn == player:
         try:
-            b.move(msg.text)
+            b.move(message.text)
             db.set_board(game['p1'], game['p2'], b.export())
-            return run_turn(msg.chat.id)
+            replies.add(text=run_turn(message.chat.id))
         except (ValueError, AssertionError):
-            return '❌ Invalid move!'
-
-    return None
+            replies.add(text='❌ Invalid move!')
 
 
 # ======== Commands ===============
 
-def cmd_play(cmd: IncomingCommand) -> Optional[str]:
+def cmd_play(command: IncomingCommand, replies: Replies) -> None:
     """Invite a friend to play Reversi.
 
     Example: `/play friend@example.com`
     """
-    if not cmd.payload:
-        return "Missing address"
+    if not command.payload:
+        replies.add(text="Missing address")
+        return
 
-    p1 = cmd.message.get_sender_contact().addr
-    p2 = cmd.payload
+    p1 = command.message.get_sender_contact().addr
+    p2 = command.payload
     if p1 == p2:
-        return "You can't play with yourself"
+        replies.add(text="You can't play with yourself")
+        return
 
     g = db.get_game_by_players(p1, p2)
 
     if g is None:  # first time playing with p2
         b = reversi.DISKS[reversi.BLACK]
         w = reversi.DISKS[reversi.WHITE]
-        chat = cmd.bot.create_group(
+        chat = command.bot.create_group(
             '{} {} 🆚 {} [Reversi]'.format(b, p1, p2), [p1, p2])
         db.add_game(p1, p2, chat.id, reversi.Board().export(), p1)
         text = 'Hello {1},\nYou have been invited by {0} to play Reversi'
         text += '\n\n{2}: {0}\n{3}: {1}\n\n'
         text = text.format(p1, p2, b, w)
-        chat.send_text(text + run_turn(chat.id))
+        replies.add(text=text + run_turn(chat.id), chat=chat)
     else:
-        chat = cmd.bot.get_chat(g['gid'])
-        chat.send_text('You already have a game group with {}'.format(p2))
-
-    return None
+        text = 'You already have a game group with {}'.format(p2)
+        replies.add(text=text, chat=command.bot.get_chat(g['gid']))
 
 
-def cmd_surrender(cmd: IncomingCommand) -> Optional[str]:
+def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
     """End the Reversi game in the group it is sent.
     """
-    game = db.get_game_by_gid(cmd.message.chat.id)
-    loser = cmd.message.get_sender_contact().addr
+    game = db.get_game_by_gid(command.message.chat.id)
+    loser = command.message.get_sender_contact().addr
     # this is not your game group
     if game is None or loser not in (game['p1'], game['p2']):
-        return 'This is not your game group'
-    if game['board'] is None:
-        return 'There is no game running'
-    db.set_board(game['p1'], game['p2'], None)
-    return '🏳️ Game Over.\n{} surrenders.'.format(loser)
+        replies.add(text='This is not your game group')
+    elif game['board'] is None:
+        replies.add(text='There is no game running')
+    else:
+        db.set_board(game['p1'], game['p2'], None)
+        replies.add(text='🏳️ Game Over.\n{} surrenders.'.format(loser))
 
 
-def cmd_new(cmd: IncomingCommand) -> Optional[str]:
+def cmd_new(command: IncomingCommand, replies: Replies) -> None:
     """Start a new Reversi game in the current game group.
     """
-    sender = cmd.message.get_sender_contact().addr
-    game = db.get_game_by_gid(cmd.message.chat.id)
+    sender = command.message.get_sender_contact().addr
+    game = db.get_game_by_gid(command.message.chat.id)
     # this is not your game group
     if game is None or sender not in (game['p1'], game['p2']):
-        return 'This is not your game group'
-    if game['board'] is None:
+        replies.add(text='This is not your game group')
+    elif game['board'] is None:
         board = reversi.Board()
         db.set_game(game['p1'], game['p2'], board.export(), sender)
         b = reversi.DISKS[reversi.BLACK]
@@ -132,14 +132,15 @@ def cmd_new(cmd: IncomingCommand) -> Optional[str]:
         p2 = game['p2'] if sender == game['p1'] else game['p1']
         text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
             b, sender, w, p2)
-        return text + run_turn(cmd.message.chat.id)
-    return 'There is a game running already'
+        replies.add(text=text + run_turn(command.message.chat.id))
+    else:
+        replies.add(text='There is a game running already')
 
 
-def cmd_repeat(cmd: IncomingCommand) -> str:
+def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
     """Send game board again.
     """
-    return run_turn(cmd.message.chat.id)
+    replies.add(text=run_turn(command.message.chat.id))
 
 
 # ======== Utilities ===============

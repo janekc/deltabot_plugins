@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 from threading import Thread
 from time import sleep
+from typing import TYPE_CHECKING, Optional
 import os
 
 from .db import DBManager
 from deltabot.hookspec import deltabot_hookimpl
 import feedparser
 import html2text
-# typing
-from typing import Optional
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-from deltachat import Chat, Contact, Message
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
+    from deltachat import Chat, Contact
 
 
 version = '1.0.0'
@@ -58,29 +59,37 @@ def deltabot_member_removed(self, chat: Chat, contact: Contact) -> None:
 
 # ======== Commands ===============
 
-def cmd_sub(cmd: IncomingCommand) -> str:
+def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
     """Subscribe current chat to the given feed.
     """
-    url = cmd.payload
+    url = command.payload
     feed = db.get_feed(url)
 
     if not feed:
         max_fc = int(getdefault('max_feed_count'))
         if max_fc >= 0 and len(db.get_feeds()) >= max_fc:
-            return 'Sorry, maximum number of feeds reached'
+            replies.add(text='Sorry, maximum number of feeds reached')
+            return
         d = feedparser.parse(url)
         if d.get('bozo') == 1:
-            return 'Invalid feed url: {}'.format(url)
-        db.add_feed(url, cmd.message.chat.id)
+            replies.add(text='Invalid feed url: {}'.format(url))
+            return
+        db.add_feed(url, command.message.chat.id)
+        modified = d.get('modified') or d.get('updated')
+        db.update_feed(
+            url, d.get('etag'), modified, get_latest_date(d.entries))
         title = d.feed.get('title') or '-'
         desc = d.feed.get('description') or '-'
-        return 'Title: {}\n\nURL: {}\n\nDescription: {}'.format(
-            title, url, desc)
+        text = 'Title: {}\n\nURL: {}\n\nDescription: {}\n\n{}'.format(
+            title, url, desc, format_entries(d.entries[-5:]))
+        replies.add(text=text)
+        return
 
-    if cmd.message.chat.id in db.get_fchats(feed['url']):
-        return 'Chat alredy subscribed to that feed.'
+    if command.message.chat.id in db.get_fchats(feed['url']):
+        replies.add(text='Chat alredy subscribed to that feed.')
+        return
 
-    db.add_fchat(cmd.message.chat.id, feed['url'])
+    db.add_fchat(command.message.chat.id, feed['url'])
     d = feedparser.parse(feed['url'])
     title = d.feed.get('title') or '-'
     desc = d.feed.get('description') or '-'
@@ -91,32 +100,35 @@ def cmd_sub(cmd: IncomingCommand) -> str:
         latest = tuple(map(int, feed['latest'].split()))
         text += format_entries(get_old_entries(d.entries, latest)[-5:])
 
-    return text
+    replies.add(text=text)
 
 
-def cmd_unsub(cmd: IncomingCommand) -> str:
+def cmd_unsub(command: IncomingCommand, replies: Replies) -> None:
     """Unsubscribe current chat from the given feed.
     """
-    url = cmd.payload
+    url = command.payload
     feed = db.get_feed(url)
     if not feed:
-        return 'Unknow feed: {}'.format(url)
+        replies.add(text='Unknow feed: {}'.format(url))
+        return
 
-    if cmd.message.chat.id not in db.get_fchats(feed['url']):
-        return 'This chat is not subscribed to: {}'.format(feed['url'])
+    if command.message.chat.id not in db.get_fchats(feed['url']):
+        replies.add(
+            text='This chat is not subscribed to: {}'.format(feed['url']))
+        return
 
-    db.remove_fchat(cmd.message.chat.id, feed['url'])
+    db.remove_fchat(command.message.chat.id, feed['url'])
     if not db.get_fchats(feed['url']):
         db.remove_feed(feed['url'])
-    return 'Chat unsubscribed from: {}'.format(feed['url'])
+    replies.add(text='Chat unsubscribed from: {}'.format(feed['url']))
 
 
-def cmd_list(cmd: IncomingCommand) -> str:
+def cmd_list(command: IncomingCommand, replies: Replies) -> None:
     """List feed subscriptions for the current chat.
     """
-    feeds = db.get_feeds(cmd.message.chat.id)
+    feeds = db.get_feeds(command.message.chat.id)
     text = '\n\n'.join(f['url'] for f in feeds)
-    return text or 'No feed subscriptions in this chat'
+    replies.add(text=text or 'No feed subscriptions in this chat')
 
 
 # ======== Utilities ===============

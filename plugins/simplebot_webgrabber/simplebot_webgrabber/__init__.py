@@ -1,21 +1,23 @@
 # -*- coding: utf-8 -*-
 from urllib.parse import quote_plus, unquote_plus, quote
+from typing import TYPE_CHECKING
 import tempfile
+import io
 import re
 import mimetypes
 import zipfile
 import zlib
 
-from deltachat import Message
 from deltabot.hookspec import deltabot_hookimpl
 from readability import Document
 from html2text import html2text
 import bs4
 import requests
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -48,92 +50,91 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 # ======== Commands ===============
 
-def cmd_ddg(cmd: IncomingCommand) -> tuple:
+def cmd_ddg(command: IncomingCommand, replies: Replies) -> None:
     """Search in DuckDuckGo.
     """
-    mode = get_mode(cmd.message.get_sender_contact().addr)
+    mode = get_mode(command.message.get_sender_contact().addr)
     page = 'lite' if mode == 'htmlzip' else 'html'
     url = "https://duckduckgo.com/{}?q={}".format(
-        page, quote_plus(cmd.payload))
-    return download_file(url, mode)
+        page, quote_plus(command.payload))
+    replies.add(**download_file(url, mode))
 
 
-def cmd_wt(cmd: IncomingCommand) -> tuple:
+def cmd_wt(command: IncomingCommand, replies: Replies) -> None:
     """Search in Wiktionary.
     """
-    sender = cmd.message.get_sender_contact().addr
+    sender = command.message.get_sender_contact().addr
     lang = get_locale(sender)
     url = "https://{}.m.wiktionary.org/wiki/?search={}".format(
-        lang, quote_plus(cmd.payload))
-    return download_file(url, get_mode(sender))
+        lang, quote_plus(command.payload))
+    replies.add(**download_file(url, get_mode(sender)))
 
 
-def cmd_w(cmd: IncomingCommand) -> tuple:
+def cmd_w(command: IncomingCommand, replies: Replies) -> None:
     """Search in Wikipedia.
     """
-    sender = cmd.message.get_sender_contact().addr
+    sender = command.message.get_sender_contact().addr
     lang = get_locale(sender)
     url = "https://{}.m.wikipedia.org/wiki/?search={}".format(
-        lang, quote_plus(cmd.payload))
-    return download_file(url, get_mode(sender))
+        lang, quote_plus(command.payload))
+    replies.add(**download_file(url, get_mode(sender)))
 
 
-def cmd_wttr(cmd: IncomingCommand) -> tuple:
+def cmd_wttr(command: IncomingCommand, replies: Replies) -> None:
     """Search weather info from wttr.in
     """
-    lang = get_locale(cmd.message.get_sender_contact().addr)
+    lang = get_locale(command.message.get_sender_contact().addr)
     url = 'https://wttr.in/{}_Fnp_lang={}.png'.format(
-        quote(cmd.payload), lang)
-    return (None, download_file(url)[-1])
+        quote(command.payload), lang)
+    reply = download_file(url)
+    reply.pop('text')
+    replies.add(**reply)
 
 
-def cmd_web(cmd: IncomingCommand) -> tuple:
+def cmd_web(command: IncomingCommand, replies: Replies) -> None:
     """Download a webpage or file.
     """
-    mode = get_mode(cmd.message.get_sender_contact().addr)
-    return download_file(cmd.payload, mode)
+    mode = get_mode(command.message.get_sender_contact().addr)
+    replies.add(**download_file(command.payload, mode))
 
 
-def cmd_read(cmd: IncomingCommand) -> tuple:
+def cmd_read(command: IncomingCommand, replies: Replies) -> None:
     """Download a webpage and try to improve its readability.
     """
-    mode = get_mode(cmd.message.get_sender_contact().addr)
-    return download_file(cmd.payload, mode, True)
+    mode = get_mode(command.message.get_sender_contact().addr)
+    replies.add(**download_file(command.payload, mode, True))
 
 
-def cmd_img(cmd: IncomingCommand) -> str:
+def cmd_img(command: IncomingCommand, replies: Replies) -> None:
     """Search for images, returns image links.
     """
-    text = '\n\n'.join(get_images(cmd.payload))
+    text = '\n\n'.join(get_images(command.payload))
     if text:
-        return '{}:\n\n{}'.format(cmd.payload, text)
-    return 'No results for: {}'.format(cmd.payload)
+        replies.add(text='{}:\n\n{}'.format(command.payload, text))
+    else:
+        replies.add(text='No results for: {}'.format(command.payload))
 
 
-def cmd_img1(cmd: IncomingCommand) -> None:
+def cmd_img1(command: IncomingCommand, replies: Replies) -> None:
     """Get an image based on the given text.
     """
-    _cmd_img(cmd, 1)
+    imgs = download_images(command.payload, 1)
+    if not imgs:
+        replies.add(text='No results for: {}'.format(command.payload))
+    else:
+        for reply in imgs:
+            replies.add(**reply)
 
 
-def cmd_img5(cmd: IncomingCommand) -> None:
+def cmd_img5(command: IncomingCommand, replies: Replies) -> None:
     """Search for images, returns 5 results.
     """
-    _cmd_img(cmd, 5)
-
-
-def _cmd_img(cmd: IncomingCommand, img_count: int = None) -> None:
-    chat = cmd.message.chat
-    imgs = get_images(cmd.payload)
+    imgs = download_images(command.payload, 5)
     if not imgs:
-        chat.send_text('No results for: {}'.format(cmd.payload))
-        return
-    for img_url in imgs[:img_count]:
-        with requests.get(img_url, headers=HEADERS) as r:
-            r.raise_for_status()
-            msg = Message.new_empty(cmd.bot.account, 'file')
-            msg.set_file(save_file(r.content, get_ext(r) or '.jpg'))
-            chat.send_msg(msg)
+        replies.add(text='No results for: {}'.format(command.payload))
+    else:
+        for reply in imgs:
+            replies.add(**reply)
 
 
 # ======== Utilities ===============
@@ -156,6 +157,18 @@ def get_mode(addr: str) -> str:
 
 def html2read(html) -> str:
     return Document(html).summary()
+
+
+def download_images(query: str, img_count: int) -> list:
+    imgs = get_images(query)
+    results = []
+    for img_url in imgs[:img_count]:
+        with requests.get(img_url, headers=HEADERS) as r:
+            r.raise_for_status()
+            filename = 'web' + (get_ext(r) or '.jpg')
+            results.append(
+                dict(filename=filename, filebytes=io.BytesIO(r.content)))
+    return results
 
 
 def get_images(query: str) -> list:
@@ -306,7 +319,7 @@ def save_htmlzip(html) -> str:
 
 
 def download_file(url: str, mode: str = 'htmlzip',
-                  readability: bool = False) -> tuple:
+                  readability: bool = False) -> dict:
     if '://' not in url:
         url = 'http://'+url
     with requests.get(url, headers=HEADERS, stream=True) as r:
@@ -317,11 +330,13 @@ def download_file(url: str, mode: str = 'htmlzip',
         if 'text/html' in r.headers['content-type']:
             if mode == 'text':
                 html = html2read(r.text) if readability else r.text
-                return (html2text(html), None)
+                return dict(text=html2text(html))
             html = process_html(r)
             if readability:
                 html = html2read(html)
             if mode == 'md':
-                return (r.url, save_file(html2text(html), '.md'))
-            return (r.url, save_htmlzip(html))
-        return (r.url, save_file(*process_file(r)))
+                return dict(text=r.url,
+                            filename=save_file(html2text(html), '.md'))
+            return dict(text=r.url, filename=save_htmlzip(html))
+        data, ext = process_file(r)
+        return dict(text=r.url, filename='web'+(ext or ''), bytefile=data)

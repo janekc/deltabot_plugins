@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
-import tempfile
+from typing import TYPE_CHECKING
+import io
 import re
 import mimetypes
 
 from deltabot.hookspec import deltabot_hookimpl
 import bs4
 import requests
-# typing
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
 
 
 version = '1.0.0'
@@ -36,21 +38,21 @@ def deltabot_init(bot: DeltaBot) -> None:
 # ======== Commands ===============
 
 
-def cmd_cuantarazon(cmd: IncomingCommand) -> tuple:
+def cmd_cuantarazon(command: IncomingCommand, replies: Replies) -> None:
     """Devuelve un meme al azar de https://m.cuantarazon.com
     """
-    return get_meme('https://m.cuantarazon.com/aleatorio/')
+    replies.add(**get_meme('https://m.cuantarazon.com/aleatorio/'))
 
 
-def cmd_cuantocabron(cmd: IncomingCommand) -> tuple:
+def cmd_cuantocabron(command: IncomingCommand, replies: Replies) -> None:
     """Devuelve un meme al azar de https://m.cuantocabron.com
     """
-    return get_meme('https://m.cuantocabron.com/aleatorio')
+    replies.add(**get_meme('https://m.cuantocabron.com/aleatorio'))
 
 
 # ======== Utilities ===============
 
-def get_meme(url: str) -> tuple:
+def get_meme(url: str) -> dict:
     def get_image(url: str) -> tuple:
         with requests.get(url, headers=HEADERS) as r:
             r.raise_for_status()
@@ -72,12 +74,8 @@ def get_meme(url: str) -> tuple:
                 img = r.content
                 ext = get_ext(r) or '.jpg'
 
-    fd, path = tempfile.mkstemp(prefix='meme-', suffix=ext)
-    with open(fd, 'wb') as f:
-        f.write(img)
-
     text = '{}\n\n{}'.format(img_desc, img_url)
-    return (text, path)
+    return dict(text=text, filename='meme'+ext, bytefile=io.BytesIO(img))
 
 
 def get_ext(r) -> str:

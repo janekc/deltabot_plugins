@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
+from typing import TYPE_CHECKING
 import os
 
 from .db import DBManager
 from deltabot.hookspec import deltabot_hookimpl
 import simplebot_chess.game as chgame
-# typing
-from typing import Optional
-from deltabot import DeltaBot
-from deltabot.commands import IncomingCommand
-from deltachat import Chat, Contact, Message
-# ======
+
+if TYPE_CHECKING:
+    from deltabot import DeltaBot
+    from deltabot.bot import Replies
+    from deltabot.commands import IncomingCommand
+    from deltachat import Chat, Contact, Message
 
 
 version = '1.0.0'
@@ -48,28 +49,27 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(msg: Message) -> Optional[str]:
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Chess game groups
     """
-    game = db.get_game_by_gid(msg.chat.id)
-    if game is None or game['game'] is None or ' ' in msg.text:
-        return None
+    game = db.get_game_by_gid(message.chat.id)
+    if game is None or game['game'] is None or ' ' in message.text:
+        return
 
     b = chgame.Board(game['game'])
-    player = msg.get_sender_contact().addr
+    player = message.get_sender_contact().addr
     if b.turn == player:
         try:
-            b.move(msg.text)
+            b.move(message.text)
             db.set_game(game['p1'], game['p2'], b.export())
-            return run_turn(msg.chat.id)
+            replies.add(text=run_turn(message.chat.id))
         except (ValueError, AssertionError):
-            return '❌ Invalid move!'
-    return None
+            replies.add(text='❌ Invalid move!')
 
 
 # ======== Commands ===============
 
-def cmd_play(cmd: IncomingCommand) -> Optional[str]:
+def cmd_play(command: IncomingCommand, replies: Replies) -> None:
     """Invite a friend to play Chess.
 
     Example: `/play friend@example.com`
@@ -78,65 +78,70 @@ def cmd_play(cmd: IncomingCommand) -> Optional[str]:
     For example, to move pawn from e2 to e4, send a message: e4 or: e2e4,
     to move knight from g1 to f3, send a message: Nf3 or: g1f3
     """
-    if not cmd.payload:
-        return "Missing address"
+    if not command.payload:
+        replies.add(text="Missing address")
+        return
 
-    p1 = cmd.message.get_sender_contact().addr
-    p2 = cmd.payload
+    p1 = command.message.get_sender_contact().addr
+    p2 = command.payload
     if p1 == p2:
-        return "You can't play with yourself"
+        replies.add(text="You can't play with yourself")
+        return
 
     g = db.get_game_by_players(p1, p2)
 
     if g is None:  # first time playing with p2
-        chat = cmd.bot.create_group(
+        chat = command.bot.create_group(
             '♞ {} 🆚 {} [Chess]'.format(p1, p2), [p1, p2])
         b = chgame.Board(p1=p1, p2=p2, theme=int(getdefault('theme')))
         db.add_game(p1, p2, chat.id, b.export())
         text = 'Hello {1},\nYou have been invited by {0} to play Chess'
         text += '\n\n{} White: {}\n{} Black: {}\n\n'
         text = text.format(b.theme['P'], p1, b.theme['p'], p2)
-        chat.send_text(text + run_turn(chat.id))
+        text += run_turn(chat.id)
+        replies.add(text=text, chat=chat)
     else:
-        chat = cmd.bot.get_chat(g['gid'])
-        chat.send_text('You already have a game group with {}'.format(p2))
-    return None
+        text = 'You already have a game group with {}'.format(p2)
+        replies.add(text=text, chat=command.bot.get_chat(g['gid']))
 
 
-def cmd_surrender(cmd: IncomingCommand) -> Optional[str]:
+def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
     """End the Chess game in the group it is sent.
     """
-    game = db.get_game_by_gid(cmd.message.chat.id)
-    loser = cmd.message.get_sender_contact().addr
+    game = db.get_game_by_gid(command.message.chat.id)
+    loser = command.message.get_sender_contact().addr
     if game is None or loser not in (game['p1'], game['p2']):
-        return 'This is not your game group'
-    if game['game'] is None:
-        return 'There is no game running'
-    db.set_game(game['p1'], game['p2'], None)
-    return '🏳️ Game Over.\n{} surrenders.'.format(loser)
+        replies.add(text='This is not your game group')
+    elif game['game'] is None:
+        replies.add(text='There is no game running')
+    else:
+        db.set_game(game['p1'], game['p2'], None)
+        replies.add(text='🏳️ Game Over.\n{} surrenders.'.format(loser))
 
 
-def cmd_new(cmd: IncomingCommand) -> Optional[str]:
+def cmd_new(command: IncomingCommand, replies: Replies) -> None:
     """Start a new Chess game in the current game group.
     """
-    p1 = cmd.message.get_sender_contact().addr
-    game = db.get_game_by_gid(cmd.message.chat.id)
+    p1 = command.message.get_sender_contact().addr
+    game = db.get_game_by_gid(command.message.chat.id)
     if game is None or p1 not in (game['p1'], game['p2']):
-        return 'This is not your game group'
-    if game['game'] is None:
+        replies.add(text='This is not your game group')
+    elif game['game'] is None:
         p2 = game['p2'] if p1 == game['p1'] else game['p1']
         b = chgame.Board(p1=p1, p2=p2, theme=int(getdefault('theme')))
         db.set_game(p1, p2, b.export())
         text = 'Game started!\n{} White: {}\n{} Black: {}\n\n'.format(
             b.theme['P'], p1, b.theme['p'], p2)
-        return text + run_turn(cmd.message.chat.id)
-    return 'There is a game running already'
+        text += run_turn(command.message.chat.id)
+        replies.add(text=text)
+    else:
+        replies.add(text='There is a game running already')
 
 
-def cmd_repeat(cmd: IncomingCommand) -> str:
+def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
     """Send game board again.
     """
-    return run_turn(cmd.message.chat.id)
+    replies.add(text=run_turn(command.message.chat.id))
 
 
 # ======== Utilities ===============
