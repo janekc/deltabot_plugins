@@ -2,7 +2,6 @@
 import os
 
 from .db import DBManager
-from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 import simplebot_chess.game as chgame
 # typing
@@ -20,23 +19,6 @@ dbot: DeltaBot
 
 # ======== Hooks ===============
 
-class AccountListener:
-    def __init__(self, db: DBManager, bot: DeltaBot) -> None:
-        self.db = db
-        self.bot = bot
-
-    @account_hookimpl
-    def ac_member_removed(self, chat: Chat, contact: Contact,
-                          message: Message) -> None:
-        game = self.db.get_game_by_gid(chat.id)
-        if game:
-            me = self.bot.self_contact
-            if contact.addr in (me.addr, game['p1'], game['p2']):
-                self.db.delete_game(game['p1'], game['p2'])
-                if contact != me:
-                    chat.remove_contact(me)
-
-
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
     global db, dbot
@@ -52,7 +34,16 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot.commands.register('/chess_new', cmd_new)
     dbot.commands.register('/chess_repeat', cmd_repeat)
 
-    bot.account.add_account_plugin(AccountListener(db, bot))
+
+@deltabot_hookimpl
+def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
+    game = db.get_game_by_gid(chat.id)
+    if game:
+        me = dbot.self_contact
+        if contact.addr in (me.addr, game['p1'], game['p2']):
+            db.delete_game(game['p1'], game['p2'])
+            if contact != me:
+                chat.remove_contact(me)
 
 
 # ======== Filters ===============

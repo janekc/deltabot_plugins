@@ -6,7 +6,6 @@ import os
 
 from .irc import IRCBot
 from .database import DBManager
-from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 # typing
 from typing import Generator, Optional
@@ -24,27 +23,6 @@ irc_bridge: IRCBot
 
 
 # ======== Hooks ===============
-
-class AccountListener:
-    def __init__(self, db: DBManager, bot: DeltaBot,
-                 irc_bridge: IRCBot) -> None:
-        self.db = db
-        self.bot = bot
-        self.irc_bridge = irc_bridge
-
-    @account_hookimpl
-    def ac_member_removed(self, chat: Chat, contact: Contact,
-                          message: Message) -> None:
-        channel = self.db.get_channel_by_gid(chat.id)
-        if channel:
-            me = self.bot.self_contact
-            ccount = len(chat.get_contacts()) - 1
-            if me == contact or ccount <= 1:
-                self.db.remove_cchat(chat.id)
-                if next(self.db.get_cchats(channel), None) is None:
-                    self.db.remove_channel(channel)
-                    self.irc_bridge.leave_channel(channel)
-
 
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
@@ -77,7 +55,17 @@ def deltabot_start(bot: DeltaBot) -> None:
     irc_bridge = IRCBot(host, port, nick, db, bot)
     Thread(target=run_irc, daemon=True).start()
 
-    bot.account.add_account_plugin(AccountListener(db, bot, irc_bridge))
+
+@deltabot_hookimpl
+def deltachat_member_removed(self, chat: Chat, contact: Contact) -> None:
+    channel = db.get_channel_by_gid(chat.id)
+    if channel:
+        me = dbot.self_contact
+        if me == contact or len(chat.get_contacts()) <= 1:
+            db.remove_cchat(chat.id)
+            if next(db.get_cchats(channel), None) is None:
+                self.db.remove_channel(channel)
+                irc_bridge.leave_channel(channel)
 
 
 # ======== Filters ===============

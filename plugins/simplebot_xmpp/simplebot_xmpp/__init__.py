@@ -6,7 +6,6 @@ import re
 
 from .xmpp import XMPPBot
 from .database import DBManager
-from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 # typing
 from typing import Optional, Generator
@@ -24,30 +23,6 @@ xmpp_bridge: XMPPBot
 
 
 # ======== Hooks ===============
-
-class AccountListener:
-    def __init__(self, db: DBManager, bot: DeltaBot,
-                 xmpp_bridge: XMPPBot) -> None:
-        self.db = db
-        self.bot = bot
-        self.xmpp_bridge = xmpp_bridge
-
-    @account_hookimpl
-    def ac_member_removed(self, chat: Chat, contact: Contact,
-                          message: Message) -> None:
-        channel = self.db.get_channel_by_gid(chat.id)
-        if channel:
-            self.bot.logger.debug(
-                'XMPP member removed: contact=%r, msg=%r',
-                contact.addr, message)
-            me = self.bot.self_contact
-            ccount = len(chat.get_contacts()) - 1
-            if me == contact or ccount <= 1:
-                self.db.remove_cchat(chat.id)
-                if next(self.db.get_cchats(channel), None) is None:
-                    self.db.remove_channel(channel)
-                    self.xmpp_bridge.leave_channel(channel)
-
 
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
@@ -81,7 +56,17 @@ def deltabot_start(bot: DeltaBot) -> None:
            args=(jid, password, nick, bridge_init), daemon=True).start()
     bridge_init.wait()
 
-    bot.account.add_account_plugin(AccountListener(db, bot, xmpp_bridge))
+
+@deltabot_hookimpl
+def deltabot_member_removed(self, chat: Chat, contact: Contact) -> None:
+    me = dbot.self_contact
+    if me == contact or len(chat.get_contacts()) <= 1:
+        channel = db.get_channel_by_gid(chat.id)
+        if channel:
+            db.remove_cchat(chat.id)
+            if next(db.get_cchats(channel), None) is None:
+                db.remove_channel(channel)
+                xmpp_bridge.leave_channel(channel)
 
 
 # ======== Filters ===============

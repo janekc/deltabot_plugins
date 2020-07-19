@@ -4,7 +4,6 @@ from time import sleep
 import os
 
 from .db import DBManager
-from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 import feedparser
 import html2text
@@ -26,25 +25,6 @@ db: DBManager
 
 # ======== Hooks ===============
 
-class AccountListener:
-    def __init__(self, db: DBManager, bot: DeltaBot) -> None:
-        self.db = db
-        self.bot = bot
-
-    @account_hookimpl
-    def ac_member_removed(self, chat: Chat, contact: Contact,
-                          message: Message) -> None:
-        feeds = self.db.get_feeds(chat.id)
-        if feeds:
-            me = self.bot.self_contact
-            ccount = len(chat.get_contacts()) - 1
-            if me == contact or ccount <= 1:
-                self.db.remove_fchat(chat.id)
-                for feed in feeds:
-                    if not self.db.get_fchats(feed['url']):
-                        self.db.remove_feed(feed['url'])
-
-
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
     global dbot, db
@@ -54,8 +34,6 @@ def deltabot_init(bot: DeltaBot) -> None:
     getdefault('delay', 60*5)
     getdefault('max_feed_count', -1)
 
-    bot.account.add_account_plugin(AccountListener(db, bot))
-
     dbot.commands.register('/feed_sub', cmd_sub)
     dbot.commands.register('/feed_unsub', cmd_unsub)
     dbot.commands.register('/feed_list', cmd_list)
@@ -64,6 +42,18 @@ def deltabot_init(bot: DeltaBot) -> None:
 @deltabot_hookimpl
 def deltabot_start(bot: DeltaBot) -> None:
     Thread(target=check_feeds, daemon=True).start()
+
+
+@deltabot_hookimpl
+def deltabot_member_removed(self, chat: Chat, contact: Contact) -> None:
+    me = dbot.self_contact
+    if me == contact or len(chat.get_contacts()) <= 1:
+        feeds = db.get_feeds(chat.id)
+        if feeds:
+            db.remove_fchat(chat.id)
+            for feed in feeds:
+                if not db.get_fchats(feed['url']):
+                    db.remove_feed(feed['url'])
 
 
 # ======== Commands ===============

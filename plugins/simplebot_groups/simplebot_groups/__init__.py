@@ -5,7 +5,6 @@ import re
 import string
 
 from .db import DBManager, Status
-from deltachat import account_hookimpl
 from deltabot.hookspec import deltabot_hookimpl
 # typing
 from typing import Generator, Optional
@@ -25,53 +24,6 @@ db: DBManager
 
 
 # ======== Hooks ===============
-
-class AccountListener:
-    def __init__(self, db: DBManager, bot: DeltaBot) -> None:
-        self.db = db
-        self.bot = bot
-
-    @account_hookimpl
-    def ac_member_added(self, chat: Chat, contact: Contact,
-                        message: Message) -> None:
-        if contact == self.bot.self_contact:
-            if self.db.get_mgroup(chat.id) or self.db.get_channel(chat.id):
-                return
-            add_group(chat.id)
-
-    @account_hookimpl
-    def ac_member_removed(self, chat: Chat, contact: Contact,
-                          message: Message) -> None:
-        me = self.bot.self_contact
-
-        g = self.db.get_group(chat.id)
-        ccount = len(chat.get_contacts()) - 1
-        if g:
-            if me == contact or ccount <= 1:
-                self.db.remove_group(chat.id)
-            return
-
-        mg = self.db.get_mgroup(chat.id)
-        if mg:
-            if me == contact or ccount <= 1:
-                self.db.remove_mchat(chat.id)
-                if not self.db.get_mchats(mg['id']):
-                    self.db.remove_mgroup(mg['id'])
-            return
-
-        ch = self.db.get_channel(chat.id)
-        if ch:
-            if me == contact or ccount <= 1:
-                if ch['admin'] == chat.id:
-                    for cchat in get_cchats(ch['id']):
-                        try:
-                            cchat.remove_contact(me)
-                        except ValueError:
-                            pass
-                    self.db.remove_channel(ch['id'])
-                else:
-                    self.db.remove_cchat(chat.id)
-
 
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
@@ -108,7 +60,42 @@ def deltabot_init(bot: DeltaBot) -> None:
     # dbot.commands.register('/group_image', cmd_image)
     # dbot.commands.register('/group_chanimage', cmd_chanimage)
 
-    bot.account.add_account_plugin(AccountListener(db, bot))
+
+@deltabot_hookimpl
+def deltabot_member_added(chat: Chat, contact: Contact) -> None:
+    if contact == dbot.self_contact:
+        if db.get_mgroup(chat.id) or db.get_channel(chat.id):
+            return
+        add_group(chat.id)
+
+
+@deltabot_hookimpl
+def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
+    me = dbot.self_contact
+    if me == contact or len(chat.get_contacts()) <= 1:
+        g = db.get_group(chat.id)
+        if g:
+            db.remove_group(chat.id)
+            return
+
+        mg = db.get_mgroup(chat.id)
+        if mg:
+            db.remove_mchat(chat.id)
+            if not db.get_mchats(mg['id']):
+                db.remove_mgroup(mg['id'])
+            return
+
+        ch = db.get_channel(chat.id)
+        if ch:
+            if ch['admin'] == chat.id:
+                for cchat in get_cchats(ch['id']):
+                    try:
+                        cchat.remove_contact(me)
+                    except ValueError:
+                        pass
+                db.remove_channel(ch['id'])
+            else:
+                db.remove_cchat(chat.id)
 
 
 # ======== Filters ===============
