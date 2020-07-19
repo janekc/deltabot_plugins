@@ -337,4 +337,5 @@ def download_file(url: str, mode: str = 'htmlzip',
                             filename=save_file(html2text(html), '.md'))
             return dict(text=r.url, filename=save_htmlzip(html))
         data, ext = process_file(r)
-        return dict(text=r.url, filename='web'+(ext or ''), bytefile=data)
+        return dict(text=r.url, filename='web'+(ext or ''),
+                    bytefile=io.BytesIO(data))
