@@ -58,7 +58,7 @@ def deltabot_start(bot: DeltaBot) -> None:
 
 
 @deltabot_hookimpl
-def deltabot_member_removed(self, chat: Chat, contact: Contact) -> None:
+def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
     me = dbot.self_contact
     if me == contact or len(chat.get_contacts()) <= 1:
         channel = db.get_channel_by_gid(chat.id)

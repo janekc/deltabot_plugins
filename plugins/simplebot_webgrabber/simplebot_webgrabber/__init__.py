@@ -165,7 +165,7 @@ def download_images(query: str, img_count: int) -> list:
             r.raise_for_status()
             filename = 'web' + (get_ext(r) or '.jpg')
             results.append(
-                dict(filename=filename, filebytes=io.BytesIO(r.content)))
+                dict(filename=filename, bytefile=io.BytesIO(r.content)))
     return results
 
 
