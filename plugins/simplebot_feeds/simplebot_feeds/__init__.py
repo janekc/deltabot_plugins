@@ -146,10 +146,6 @@ def check_feeds() -> None:
                 f['url'], etag=f['etag'], modified=f['modified'])
 
             if d.get('bozo') == 1:
-                db.remove_feed(f['url'])
-                text = 'Feed failed and was removed: {}'.format(f['url'])
-                for gid in fchats:
-                    dbot.get_chat(gid).send_text(text)
                 continue
 
             if d.entries and f['latest']:
