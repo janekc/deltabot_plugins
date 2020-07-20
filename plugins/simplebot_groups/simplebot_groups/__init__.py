@@ -18,7 +18,6 @@ version = '1.0.0'
 GROUP_URL = 'http://delta.chat/group/'
 MGROUP_URL = 'http://delta.chat/mega-group/'
 CHANNEL_URL = 'http://delta.chat/channel/'
-nick_re = re.compile(r'[a-zA-Z0-9_]{1,30}$')
 dbot: DeltaBot
 db: DBManager
 
@@ -44,7 +43,6 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     if allow_mgroups == '1':
         dbot.commands.register('/group_mega', cmd_mega)
-    dbot.commands.register('/group_nick', cmd_nick)
     dbot.commands.register('/group_id', cmd_id)
     dbot.commands.register('/group_list', cmd_list)
     dbot.commands.register('/group_me', cmd_me)
@@ -109,8 +107,8 @@ def filter_messages(message: Message, replies: Replies) -> None:
             replies.add(text='Unsupported message')
             return
 
-        nick = db.get_nick(message.get_sender_contact().addr)
-        text = '{}:\n{}'.format(nick, message.text)
+        name = get_name(message.get_sender_contact())
+        text = '{}:\n{}'.format(name, message.text)
 
         for g in get_mchats(mg['id']):
             if g.id != message.chat.id:
@@ -123,8 +121,8 @@ def filter_messages(message: Message, replies: Replies) -> None:
             replies.add(text='Unsupported message')
             return
 
-        nick = db.get_nick(message.get_sender_contact().addr)
-        text = '{}:\n{}'.format(nick, message.text)
+        name = get_name(message.get_sender_contact())
+        text = '{}:\n{}'.format(name, message.text)
 
         for g in get_cchats(ch['id']):
             replies.add(text=text, chat=g)
@@ -160,26 +158,6 @@ def cmd_mega(command: IncomingCommand, replies: Replies) -> None:
     db.add_mchat(command.message.chat.id, db.get_mgroup_by_name(name)['id'])
 
     replies.add(text='This is now a mega-group')
-
-
-def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
-    """Set your nick or display your current nick if no new nick is given.
-    """
-    addr = command.message.get_sender_contact().addr
-    if command.payload:
-        new_nick = '_'.join(command.payload.split())
-        if new_nick != addr and not nick_re.match(new_nick):
-            text = '** Invalid nick, only letters, numbers and'
-            text += ' underscore are allowed, also nick should be'
-            text += ' less than 30 characters'
-            replies.add(text=text)
-        elif db.get_addr(new_nick):
-            replies.add(text='** Nick already taken')
-        else:
-            db.set_nick(addr, new_nick)
-            replies.add(text='** Nick: {}'.format(new_nick))
-    else:
-        replies.add(text='** Nick: {}'.format(db.get_nick(addr)))
 
 
 def cmd_id(command: IncomingCommand, replies: Replies) -> None:
@@ -316,7 +294,7 @@ def cmd_members(command: IncomingCommand, replies: Replies) -> None:
     for g in get_mchats(mg['id']):
         for c in g.get_contacts():
             if c != me:
-                text += '• {}\n'.format(db.get_nick(c.addr))
+                text += '• {}\n'.format(get_name(c))
                 count += 1
     replies.add(text='{}\n\n👤 Total: {}'.format(text, count))
 
@@ -353,7 +331,6 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
                 add_contact(g, sender)
 
             text = text.format(mg['name'], command.payload, mg['topic'])
-            text += '\n\nYour Nick: {}'.format(db.get_nick(sender.addr))
             replies.add(text=text)
             return
     elif command.payload.startswith(GROUP_URL):
@@ -420,8 +397,8 @@ def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
 
         mg = db.get_mgroup(command.message.chat.id)
         if mg:
-            nick = db.get_nick(command.message.get_sender_contact().addr)
-            text = text.format(nick, new_topic)
+            name = get_name(command.message.get_sender_contact())
+            text = text.format(name, new_topic)
             db.set_mgroup_topic(mg['id'], new_topic)
             for chat in get_mchats(mg['id']):
                 replies.add(text=text, chat=chat)
@@ -429,8 +406,8 @@ def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
 
         ch = db.get_channel(command.message.chat.id)
         if ch and ch['admin'] == command.message.chat.id:
-            nick = db.get_nick(command.message.get_sender_contact().addr)
-            text = text.format(nick, new_topic)
+            name = get_name(command.message.get_sender_contact())
+            text = text.format(name, new_topic)
             db.set_channel_topic(ch['id'], new_topic)
             for chat in get_cchats(ch['id']):
                 replies.add(text=text, chat=chat)
@@ -460,7 +437,7 @@ def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
 
 
 def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
-    """Remove the member with the given address or nick from the group with the given id. If no address is provided, removes yourself from group or channel.
+    """Remove the member with the given address from the group it is sent. If no address is provided, removes yourself from group or channel.
     """
     sender = command.message.get_sender_contact()
     me = command.bot.self_contact
@@ -544,9 +521,8 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
             for c in g.get_contacts():
                 if c.addr == addr:
                     g.remove_contact(c)
-                    nick = db.get_nick(sender.addr)
                     text = 'Removed from {} by {}'.format(
-                        mg['name'], nick)
+                        mg['name'], get_name(sender))
                     replies.add(text=text, chat=command.bot.get_chat(c))
                     replies.add(
                         text='** {} removed'.format(command.payload))
@@ -630,3 +606,9 @@ def add_contact(chat: Chat, contact: Contact) -> None:
     if img_path and not os.path.exists(img_path):
         chat.remove_profile_image()
     chat.add_contact(contact)
+
+
+def get_name(c: Contact) -> str:
+    if c.name == c.addr:
+        return c.addr
+    return '{}({})'.format(c.name, c.addr)

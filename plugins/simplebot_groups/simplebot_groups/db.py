@@ -13,10 +13,6 @@ class DBManager:
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.execute(
-            '''CREATE TABLE IF NOT EXISTS nicks
-            (addr TEXT PRIMARY KEY,
-            nick TEXT UNIQUE NOT NULL)''')
-        self.execute(
             '''CREATE TABLE IF NOT EXISTS groups
             (id INTEGER PRIMARY KEY,
             pid TEXT NOT NULL,
@@ -65,31 +61,6 @@ class DBManager:
 
     def close(self) -> None:
         self.db.close()
-
-    # ==== nicks =====
-
-    def get_nick(self, addr: str) -> str:
-        r = self.execute(
-            'SELECT nick from nicks WHERE addr=?', (addr,)).fetchone()
-        if r:
-            return r[0]
-        else:
-            i = 1
-            while True:
-                nick = 'User{}'.format(i)
-                if not self.get_addr(nick):
-                    self.set_nick(addr, nick)
-                    break
-                i += 1
-            return nick
-
-    def set_nick(self, addr: str, nick: str) -> None:
-        self.commit('REPLACE INTO nicks VALUES (?,?)', (addr, nick))
-
-    def get_addr(self, nick: str) -> Optional[str]:
-        r = self.execute(
-            'SELECT addr FROM nicks WHERE nick=?', (nick,)).fetchone()
-        return r and r[0]
 
     # ==== groups =====
 
