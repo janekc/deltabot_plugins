@@ -57,14 +57,14 @@ def deltabot_start(bot: DeltaBot) -> None:
 
 
 @deltabot_hookimpl
-def deltabot_member_removed(self, chat: Chat, contact: Contact) -> None:
+def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
     channel = db.get_channel_by_gid(chat.id)
     if channel:
         me = dbot.self_contact
         if me == contact or len(chat.get_contacts()) <= 1:
             db.remove_cchat(chat.id)
             if next(db.get_cchats(channel), None) is None:
-                self.db.remove_channel(channel)
+                db.remove_channel(channel)
                 irc_bridge.leave_channel(channel)
 
 
