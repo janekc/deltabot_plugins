@@ -27,7 +27,8 @@ def cmd_quote(command: IncomingCommand, replies: Replies) -> None:
     Search in Wikiquote or get the quote of the day if no text is given.
     Example: `/quote Richard Stallman`
     """
-    locale = get_locale(command.message.get_sender_contact().addr)
+    locale = get_locale(
+        command.bot, command.message.get_sender_contact().addr)
     if locale in wq.supported_languages():
         lang = locale
     else:
@@ -51,5 +52,5 @@ def cmd_quote(command: IncomingCommand, replies: Replies) -> None:
 
 # ======== Utilities ===============
 
-def get_locale(addr: str) -> str:
-    return dbot.get('locale', scope=addr) or dbot.get('locale') or 'en'
+def get_locale(bot, addr: str) -> str:
+    return bot.get('locale', scope=addr) or bot.get('locale') or 'en'
