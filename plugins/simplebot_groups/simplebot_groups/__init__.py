@@ -2,7 +2,6 @@
 from typing import Generator
 import os
 import random
-import re
 import string
 
 from .db import DBManager, Status
@@ -34,10 +33,9 @@ def deltabot_init(bot: DeltaBot) -> None:
     getdefault('max_group_size', '20')
     getdefault('max_topic_size', '500')
     getdefault('allow_groups', '1')
+    getdefault('max_file_size', '204800')  # 200KB
     allow_mgroups = getdefault('allow_mgroups', '1')
     allow_channels = getdefault('allow_channels', '1')
-
-    # getdefault('max_file_size', '102400')  # 100KB
 
     bot.filters.register(name=__name__, func=filter_messages)
 
@@ -54,9 +52,6 @@ def deltabot_init(bot: DeltaBot) -> None:
         dbot.commands.register('/group_chan', cmd_chan)
     # dbot.commands.register('/group_public', cmd_public)
     # dbot.commands.register('/group_private', cmd_private)
-    # dbot.commands.register('/group_name', cmd_name)
-    # dbot.commands.register('/group_image', cmd_image)
-    # dbot.commands.register('/group_chanimage', cmd_chanimage)
 
 
 @deltabot_hookimpl
@@ -102,9 +97,10 @@ def filter_messages(message: Message, replies: Replies) -> None:
     """Process messages sent to groups, mega-groups and channels.
     """
     mg = db.get_mgroup(message.chat.id)
+    max_size = int(getdefault('max_file_size'))
     if mg:
-        if not message.text or message.filename:
-            replies.add(text='Unsupported message')
+        if message.filename and os.path.getsize(message.filename) > max_size:
+            replies.add(text='File too big, up to {} Bytes are allowed'.format(max_size))
             return
 
         name = get_name(message.get_sender_contact())
@@ -112,20 +108,20 @@ def filter_messages(message: Message, replies: Replies) -> None:
 
         for g in get_mchats(mg['id']):
             if g.id != message.chat.id:
-                g.send_text(text)
+                replies.add(text=text, filename=message.filename, chat=g)
         return
 
     ch = db.get_channel(message.chat.id)
     if ch and ch['admin'] == message.chat.id:
-        if not message.text or message.filename:
-            replies.add(text='Unsupported message')
+        if message.file and os.path.getsize(message.filename) > max_size:
+            replies.add(text='File too big, up to {} Bytes are allowed'.format(max_size))
             return
 
         name = get_name(message.get_sender_contact())
         text = '{}:\n{}'.format(name, message.text)
 
         for g in get_cchats(ch['id']):
-            replies.add(text=text, chat=g)
+            replies.add(text=text, filename=message.filename, chat=g)
     elif ch:
         replies.add(text='Only channel operators can do that.')
 
