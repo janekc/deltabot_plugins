@@ -130,6 +130,8 @@ def cmd_tr(command: IncomingCommand, replies: Replies) -> None:
     """
     if command.payload:
         l1, l2, text = command.payload.split(maxsplit=2)
-        return ts.google(text, from_language=l1, to_language=l2)
-    replies.add(
-        text='\n'.join('* {}: {}'.format(k, v) for k, v in langs.items()))
+        replies.add(
+            text=ts.google(text, from_language=l1, to_language=l2))
+    else:
+        replies.add(text='\n'.join(
+            '* {}: {}'.format(k, v) for k, v in langs.items()))
