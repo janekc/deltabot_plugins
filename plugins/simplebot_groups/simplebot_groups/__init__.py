@@ -211,11 +211,14 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
             '{0}:\n👤 {3}\nTopic: {1}\nID: {2}\n\n'.format(*g) for g in groups)
         return text
 
-    groups: list = db.get_groups(Status.PUBLIC)
-    for i, g in enumerate(groups):
+    groups: list = []
+    for g in db.get_groups(Status.PUBLIC):
         chat = command.bot.get_chat(g['id'])
-        groups[i] = (chat.get_name(), g['topic'], '{}{}'.format(
-            GROUP_URL, chat.id), len(chat.get_contacts()))
+        if not chat:
+            db.remove_group(g['id'])
+            continue
+        groups.append((chat.get_name(), g['topic'], '{}{}'.format(
+            GROUP_URL, chat.id), len(chat.get_contacts())))
     if groups:
         replies.add(
             text=get_list('Groups', groups), chat=command.message.chat)
@@ -578,16 +581,28 @@ def generate_pid(length: int = 6) -> str:
 
 def get_mchats(mgid: int) -> Generator:
     for gid in db.get_mchats(mgid):
-        yield dbot.get_chat(gid)
+        g = dbot.get_chat(gid)
+        if g:
+            yield g
+        else:
+            db.remove_mchat(gid)
 
 
 def get_cchats(cgid: int, include_admin: bool = False) -> Generator:
     for gid in db.get_cchats(cgid):
-        yield dbot.get_chat(gid)
+        g = dbot.get_chat(gid)
+        if g:
+            yield g
+        else:
+            db.remove_cchat(gid)
     if include_admin:
-        ch = db.get_channel(cgid)
+        ch = db.get_channel_by_id(cgid)
         if ch:
-            yield ch['admin']
+            g = dbot.get_chat(ch['admin'])
+            if g:
+                yield g
+            else:
+                db.remove_channel(cgid)
 
 
 def add_group(gid: int) -> None:
