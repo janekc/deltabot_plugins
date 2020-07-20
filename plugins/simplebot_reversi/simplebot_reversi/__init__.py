@@ -76,6 +76,10 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text="Missing address")
         return
 
+    if command.payload == command.bot.self_contact.addr:
+        replies.add(text="Sorry, I don't want to play")
+        return
+
     p1 = command.message.get_sender_contact().addr
     p2 = command.payload
     if p1 == p2:
