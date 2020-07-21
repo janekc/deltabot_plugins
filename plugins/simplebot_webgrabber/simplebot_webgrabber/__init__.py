@@ -26,6 +26,10 @@ HEADERS = {'user-agent': ua}
 dbot: DeltaBot
 
 
+class FileTooBig(ValueError):
+    pass
+
+
 # ======== Hooks ===============
 
 @deltabot_hookimpl
@@ -93,14 +97,20 @@ def cmd_web(command: IncomingCommand, replies: Replies) -> None:
     """Download a webpage or file.
     """
     mode = get_mode(command.message.get_sender_contact().addr)
-    replies.add(**download_file(command.payload, mode))
+    try:
+        replies.add(**download_file(command.payload, mode))
+    except FileTooBig as err:
+        replies.add(text=str(err))
 
 
 def cmd_read(command: IncomingCommand, replies: Replies) -> None:
     """Download a webpage and try to improve its readability.
     """
     mode = get_mode(command.message.get_sender_contact().addr)
-    replies.add(**download_file(command.payload, mode, True))
+    try:
+        replies.add(**download_file(command.payload, mode, True))
+    except FileTooBig as err:
+        replies.add(text=str(err))
 
 
 def cmd_img(command: IncomingCommand, replies: Replies) -> None:
@@ -271,7 +281,7 @@ def process_file(r) -> tuple:
         size += len(chunk)
         if size > max_size:
             msg = 'Only files smaller than {} Bytes are allowed'
-            raise ValueError(msg.format(max_size))
+            raise FileTooBig(msg.format(max_size))
 
     return (data, get_ext(r))
 
