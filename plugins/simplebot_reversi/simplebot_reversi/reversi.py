@@ -6,7 +6,7 @@ BLACK = 'x'
 WHITE = 'o'
 COLS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
 ROWS = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭']
-DISKS = {BLACK: '🔴', WHITE: '🔵', ' ': '⬜', 'V': '⬛'}
+DISKS = {BLACK: '🔴', WHITE: '🔵', ' ': '⬜', 'V': '🔲'}
 
 
 class Board:
@@ -18,10 +18,10 @@ class Board:
         else:
             self.turn = BLACK
             self._board = [[' ' for y in range(8)] for x in range(8)]
-            self._board[3][3] = BLACK
-            self._board[3][4] = WHITE
-            self._board[4][3] = WHITE
-            self._board[4][4] = BLACK
+            self._board[3][3] = WHITE
+            self._board[3][4] = BLACK
+            self._board[4][3] = BLACK
+            self._board[4][4] = WHITE
 
     def export(self) -> str:
         b = '\n'.join(''.join(ln) for ln in self._board)
@@ -48,17 +48,23 @@ class Board:
                     w += 1
         return '{} {} – {} {}'.format(DISKS[BLACK], b, w, DISKS[WHITE])
 
-    def result(self) -> Optional[dict]:
-        b, w = 0, 0
+    def result(self) -> dict:
         for x in range(8):
             for y in range(8):
                 if self.is_valid_move(self.turn, x, y):
-                    return None
+                    return {'status': 0}
+        b, w = 0, 0
+        disk = BLACK if self.turn == WHITE else WHITE
+        for x in range(8):
+            for y in range(8):
+                if self.is_valid_move(disk, x, y):
+                    return {'status': 1}
                 elif self._board[x][y] == BLACK:
                     b += 1
                 elif self._board[x][y] == WHITE:
                     w += 1
-        return {BLACK: b, WHITE: w}
+
+        return {'status': 2, BLACK: b, WHITE: w}
 
     def move(self, coord: str) -> None:
         sorted_coord = sorted(coord.lower())

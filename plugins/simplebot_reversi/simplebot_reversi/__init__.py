@@ -151,7 +151,10 @@ def run_turn(gid: int) -> str:
     g = db.get_game_by_gid(gid)
     b = reversi.Board(g['board'])
     result = b.result()
-    if result is None:
+    if result['status'] in (0, 1):
+        if result['status'] == 1:
+            b.turn = reversi.BLACK if b.turn == reversi.WHITE else reversi.WHITE
+            db.set_board(g['p1'], g['p2'], b.export())
         if b.turn == reversi.BLACK:
             disk = reversi.DISKS[reversi.BLACK]
             turn = '{} {}'.format(disk, g['black'])
