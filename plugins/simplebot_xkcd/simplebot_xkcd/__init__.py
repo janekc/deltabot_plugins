@@ -18,7 +18,7 @@ version = '1.0.0'
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name='/xkcd', func=cmd_xkcd)
-    bot.commands.register(name='/xkcd_latest', func=cmd_latest)
+    bot.commands.register(name='/xkcdlatest', func=cmd_latest)
 
 
 # ======== Commands ===============

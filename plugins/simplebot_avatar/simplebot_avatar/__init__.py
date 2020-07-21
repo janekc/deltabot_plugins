@@ -20,13 +20,13 @@ HEADERS = {
 
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    bot.commands.register(name='/avatar', func=cmd_avatar)
+    bot.commands.register(name='/avatar_cat', func=cmd_cat)
     bot.commands.register(name='/avatar_bird', func=cmd_bird)
 
 
 # ======== Commands ===============
 
-def cmd_avatar(command: IncomingCommand, replies: Replies) -> None:
+def cmd_cat(command: IncomingCommand, replies: Replies) -> None:
     """Generate a cat avatar based on the given text, if no text is given a random avatar is generated.
     """
     replies.add(**get_message(command.payload, '2016_cat-generator'))

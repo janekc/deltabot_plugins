@@ -38,13 +38,13 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     if allow_mgroups == '1':
         dbot.commands.register('/group_mega', cmd_mega)
-    dbot.commands.register('/group_id', cmd_id)
+    dbot.commands.register('/group_info', cmd_info)
     dbot.commands.register('/group_list', cmd_list)
     dbot.commands.register('/group_me', cmd_me)
     dbot.commands.register('/group_members', cmd_members)
-    dbot.commands.register('/group_join', cmd_join, is_dynamic=True)
+    dbot.commands.register('/group_join', cmd_join)
     dbot.commands.register('/group_topic', cmd_topic)
-    dbot.commands.register('/group_remove', cmd_remove, is_dynamic=True)
+    dbot.commands.register('/group_remove', cmd_remove)
     if allow_channels == '1':
         dbot.commands.register('/group_chan', cmd_chan)
     # dbot.commands.register('/group_public', cmd_public)
@@ -153,33 +153,37 @@ def cmd_mega(command: IncomingCommand, replies: Replies) -> None:
     replies.add(text='This is now a mega-group')
 
 
-def cmd_id(command: IncomingCommand, replies: Replies) -> None:
-    """Show the id of the group, mega-group or channel where it is sent.
+def cmd_info(command: IncomingCommand, replies: Replies) -> None:
+    """Show the group(or channel) info.
     """
     if not command.message.chat.is_group():
         replies.add(text='This is not a group')
         return
 
+    text = '{} Status: {}\nTopic: {}\n\n'
+    text += 'Leave: /group_remove\nInvite: /group_join_{}'
     mg = db.get_mgroup(command.message.chat.id)
     if mg:
+        type_ = 'Mega-Group'
         if mg['status'] == Status.PUBLIC:
-            status = 'Mega-Group Status: Public'
-            gid = '/group_join_m{}'.format(mg['id'])
+            status = 'Public'
+            gid = 'm{}'.format(mg['id'])
         else:
-            status = 'Mega-Group Status: Private'
-            gid = '/group_join_m{}_{}'.format(mg['id'], mg['pid'])
-        replies.add(text='{}\nJoin: {}'.format(status, gid))
+            status = 'Private'
+            gid = 'm{}_{}'.format(mg['id'], mg['pid'])
+        replies.add(text=text.format(type_, status, mg['topic'], gid))
         return
 
     ch = db.get_channel(command.message.chat.id)
     if ch:
+        type_ = 'Channel'
         if ch['status'] == Status.PUBLIC:
-            status = 'Channel Status: Public'
-            gid = '/group_join_c{}'.format(ch['id'])
+            status = 'Public'
+            gid = 'c{}'.format(ch['id'])
         else:
-            status = 'Channel Status: Private'
-            gid = '/group_join_c{}_{}'.format(ch['id'], ch['pid'])
-        replies.add(text='{}\nJoin: {}'.format(status, gid))
+            status = 'Private'
+            gid = 'c{}_{}'.format(ch['id'], ch['pid'])
+        replies.add(text=text.format(type_, status, ch['topic'], gid))
         return
 
     g = db.get_group(command.message.chat.id)
@@ -188,13 +192,14 @@ def cmd_id(command: IncomingCommand, replies: Replies) -> None:
         g = db.get_group(command.message.chat.id)
         assert g is not None
 
+    type_ = 'Group'
     if g['status'] == Status.PUBLIC:
-        status = 'Group Status: Public'
-        gid = '/group_join_g{}'.format(g['id'])
+        status = 'Public'
+        gid = 'g{}'.format(g['id'])
     else:
-        status = 'Group Status: Private'
-        gid = '/group_join_g{}_{}'.format(g['id'], g['pid'])
-    replies.add(text='{}\nJoin: {}'.format(status, gid))
+        status = 'Private'
+        gid = 'g{}_{}'.format(g['id'], g['pid'])
+    replies.add(text=text.format(type_, status, g['topic'], gid))
 
 
 def cmd_list(command: IncomingCommand, replies: Replies) -> None:
@@ -302,8 +307,8 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     pid = ''
     text = 'Added to {}\n\nTopic: {}\n\nLeave: /group_remove_{}'
     if command.payload.startswith('m'):
-        data = command.payload[1:].split('_')
-        gid = int(data[0])
+        data = command.args
+        gid = int(data[0][1:])
         if len(data) == 2:
             pid = data[1]
         mg = db.get_mgroup_by_id(gid)
@@ -314,7 +319,7 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
                 contacts = group.get_contacts()
                 if sender in contacts:
                     replies.add(
-                        text='You are already a member of this group',
+                        text='{}, you are already a member of this group'.format(sender.addr),
                         chat=group)
                     return None
                 if len(contacts) < gsize:
@@ -330,8 +335,8 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
             replies.add(text=text)
             return
     elif command.payload.startswith('g'):
-        data = command.payload[1:].split('_')
-        gid = int(data[0])
+        data = command.args
+        gid = int(data[0][1:])
         if len(data) == 2:
             pid = data[1]
         gr = db.get_group(gid)
@@ -340,7 +345,7 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
             contacts = g.get_contacts()
             if sender in contacts:
                 replies.add(
-                    text='You are already a member of this group', chat=g)
+                    text='{}, you are already a member of this group'.format(sender.addr), chat=g)
             elif len(contacts) < int(getdefault('max_group_size')):
                 add_contact(g, sender)
                 replies.add(text=text.format(
@@ -349,8 +354,8 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
                 replies.add(text='Group is full')
             return
     elif command.payload.startswith('c'):
-        data = command.payload[1:].split('_')
-        gid = int(data[0])
+        data = command.args
+        gid = int(data[0][1:])
         if len(data) == 2:
             pid = data[1]
         ch = db.get_channel_by_id(gid)
@@ -358,13 +363,13 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
             g = command.bot.get_chat(ch['admin'])
             if sender in g.get_contacts():
                 replies.add(
-                    text='You are already a member of this channel',
+                    text='{}, you are already a member of this channel'.format(sender.addr),
                     chat=g)
                 return
             for g in get_cchats(ch['id']):
                 if sender in g.get_contacts():
                     replies.add(
-                        text='You are already a member of this channel',
+                        text='{}, you are already a member of this channel'.format(sender.addr),
                         chat=g)
                     return
             g = command.bot.create_group(ch['name'], [sender])
@@ -433,7 +438,7 @@ def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
 
 
 def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
-    """Remove the member with the given address from the group it is sent. If no address is provided, removes yourself from group or channel.
+    """Remove the member with the given address from the mega-group it is sent. If no address is provided, removes yourself from group or channel.
     """
     sender = command.message.get_sender_contact()
     me = command.bot.self_contact
@@ -443,11 +448,10 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
         return
 
     if not command.message.chat.is_group():
-        args = command.payload.split(maxsplit=1)
-        url = args[0]
-        command.payload = args[1] if len(args) == 2 else ''
-        if url.startswith('m'):
-            mg = db.get_mgroup_by_id(int(url[1:].split('_')[0]))
+        args = command.args
+        command.payload = args[-1] if '@' in args[-1] else ''
+        if args[0].startswith('m'):
+            mg = db.get_mgroup_by_id(int(args[0][1:]))
             if not mg:
                 replies.add(text='Invalid ID')
                 return
@@ -462,8 +466,8 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
             else:
                 replies.add(text='You are not a member of that group')
                 return
-        elif url.startswith('c'):
-            ch = db.get_channel_by_id(int(url[1:].split('_')[0]))
+        elif args[0].startswith('c'):
+            ch = db.get_channel_by_id(int(args[0][1:]))
             if not ch:
                 replies.add(text='Invalid ID')
                 return
@@ -476,8 +480,8 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
             else:
                 replies.add(text='You are not a member of that channel')
                 return
-        elif url.startswith('g'):
-            gr = db.get_group(int(url[1:].split('_')[0]))
+        elif args[0].startswith('g'):
+            gr = db.get_group(int(args[0][1:]))
             if not gr:
                 replies.add(text='Invalid ID')
                 return
@@ -503,9 +507,6 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
         mg = db.get_mgroup(command.message.chat.id)
 
     if mg:
-        if '@' not in command.payload:
-            replies.add(text='Unknow user: {}'.format(command.payload))
-            return
         if command.payload == me.addr:
             replies.add(text='You can not remove me from the group')
             return
@@ -521,14 +522,6 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
                     return
         replies.add(text='User "{}" is not member of the group'.format(
             command.payload))
-
-    # if it is a group
-    for c in command.message.chat.get_contacts():
-        if c.addr == command.payload:
-            command.message.chat.remove_contact(c)
-            return
-    replies.add(text='User "{}" is not member of this group'.format(
-        command.payload))
 
 
 def cmd_chan(command: IncomingCommand, replies: Replies) -> None:

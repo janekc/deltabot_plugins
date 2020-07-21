@@ -25,14 +25,14 @@ channels = {
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name="/cartv", func=cmd_cartv)
-    bot.commands.register(name="/cartv_cv", func=cmd_cv)
-    bot.commands.register(name="/cartv_tr", func=cmd_tr)
-    bot.commands.register(name="/cartv_ed", func=cmd_ed)
-    bot.commands.register(name="/cartv_ed2", func=cmd_ed2)
-    bot.commands.register(name="/cartv_mv", func=cmd_mv)
-    bot.commands.register(name="/cartv_cl", func=cmd_cl)
-    bot.commands.register(name="/cartv_ca", func=cmd_ca)
-    bot.commands.register(name="/cartv_ha", func=cmd_ha)
+    bot.commands.register(name="/cartvcv", func=cmd_cv)
+    bot.commands.register(name="/cartvtr", func=cmd_tr)
+    bot.commands.register(name="/cartved", func=cmd_ed)
+    bot.commands.register(name="/cartved2", func=cmd_ed2)
+    bot.commands.register(name="/cartvmv", func=cmd_mv)
+    bot.commands.register(name="/cartvcl", func=cmd_cl)
+    bot.commands.register(name="/cartvca", func=cmd_ca)
+    bot.commands.register(name="/cartvha", func=cmd_ha)
 
 
 def cmd_cartv(command: IncomingCommand, replies: Replies) -> None:
