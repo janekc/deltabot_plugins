@@ -105,7 +105,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
 
         for g in get_mchats(mg['id']):
             if g.id != message.chat.id:
-                replies.add(text=text, filename=message.filename, chat=g)
+                replies.add(text=text, filename=message.filename or None, chat=g)
         return
 
     ch = db.get_channel(message.chat.id)
@@ -118,7 +118,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
         text = '{}:\n{}'.format(name, message.text)
 
         for g in get_cchats(ch['id']):
-            replies.add(text=text, filename=message.filename, chat=g)
+            replies.add(text=text, filename=message.filename or None, chat=g)
     elif ch:
         replies.add(text='Only channel operators can do that.')
 
