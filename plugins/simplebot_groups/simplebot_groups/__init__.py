@@ -374,8 +374,8 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
                     return
             g = command.bot.create_group(ch['name'], [sender])
             db.add_cchat(g.id, ch['id'])
-            replies.add(text=text.format(
-                ch['name'], ch['topic'], command.payload), chat=g)
+            text = 'Added to {}\n\nTopic: {}\n\nLeave: /group_remove'
+            replies.add(text=text.format(ch['name'], ch['topic']), chat=g)
             return
 
     replies.add(text='Invalid ID')
