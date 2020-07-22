@@ -48,6 +48,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot.commands.register('/img', cmd_img)
     dbot.commands.register('/img1', cmd_img1)
     dbot.commands.register('/img5', cmd_img5)
+    dbot.commands.register('/lyrics', cmd_lyrics)
 
 
 # ======== Commands ===============
@@ -143,6 +144,29 @@ def cmd_img5(command: IncomingCommand, replies: Replies) -> None:
     else:
         for reply in imgs:
             replies.add(**reply)
+
+
+def cmd_lyrics(command: IncomingCommand, replies: Replies) -> None:
+    """Get song lyrics.
+    """
+    url = "https://lyrics.fandom.com/wiki/Special:Search?search={}&fulltext=Search".format(quote(command.payload))
+    with requests.get(url, headers=HEADERS) as r:
+        r.raise_for_status()
+        soup = bs4.BeautifulSoup(r.text, 'html.parser')
+    for li in soup('li', class_='result'):
+        a = li.h1.a
+        name = a.get_text().strip()
+        if ':' in name:
+            with requests.get(a['href'], headers=HEADERS) as r:
+                r.raise_for_status()
+                soup = bs4.BeautifulSoup(r.text, 'html.parser')
+            lyricbox = soup.find('div', class_='lyricbox')
+            if lyricbox:
+                text = '{}\n\n{}'.format(name, html2text(str(lyricbox)))
+                replies.add(text=text)
+                return
+
+    replies.add(text='No results for: {}'.format(command.payload))
 
 
 # ======== Utilities ===============
