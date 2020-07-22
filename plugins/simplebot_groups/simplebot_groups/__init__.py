@@ -110,7 +110,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
 
     ch = db.get_channel(message.chat.id)
     if ch and ch['admin'] == message.chat.id:
-        if message.file and os.path.getsize(message.filename) > max_size:
+        if message.filename and os.path.getsize(message.filename) > max_size:
             replies.add(text='File too big, up to {} Bytes are allowed'.format(max_size))
             return
 
