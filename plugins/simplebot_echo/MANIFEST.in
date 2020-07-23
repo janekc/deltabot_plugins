@@ -1,1 +1,2 @@
-recursive-include simplebot_echo/locale *
+include LICENSE
+include *.rst

@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
+from typing import Optional
+
+
 BLACK = 'x'
 WHITE = 'o'
 COLS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
 ROWS = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭']
-DISKS = {BLACK: '🔴', WHITE: '🔵', ' ': '⬜', 'V': '⬛'}
+DISKS = {BLACK: '🔴', WHITE: '🔵', ' ': '⬜', 'V': '🔲'}
 
 
 class Board:
@@ -11,20 +14,20 @@ class Board:
         if board:
             lines = board.split('\n')
             self.turn = lines[0]
-            self._board = [[e for e in l] for l in lines[1:]]
+            self._board = [[e for e in ln] for ln in lines[1:]]
         else:
             self.turn = BLACK
             self._board = [[' ' for y in range(8)] for x in range(8)]
-            self._board[3][3] = BLACK
-            self._board[3][4] = WHITE
-            self._board[4][3] = WHITE
-            self._board[4][4] = BLACK
+            self._board[3][3] = WHITE
+            self._board[3][4] = BLACK
+            self._board[4][3] = BLACK
+            self._board[4][4] = WHITE
 
-    def export(self):
-        b = '\n'.join(''.join(l) for l in self._board)
+    def export(self) -> str:
+        b = '\n'.join(''.join(ln) for ln in self._board)
         return '\n'.join((self.turn, b))
 
-    def __str__(self):
+    def __str__(self) -> str:
         board = [[e for e in row] for row in self._board]
         for x, y in self.get_valid_moves(self.turn):
             board[x][y] = 'V'
@@ -35,7 +38,7 @@ class Board:
             text += ROWS[i] + '\n'
         return text
 
-    def get_score(self):
+    def get_score(self) -> str:
         b, w = 0, 0
         for row in self._board:
             for d in row:
@@ -45,23 +48,29 @@ class Board:
                     w += 1
         return '{} {} – {} {}'.format(DISKS[BLACK], b, w, DISKS[WHITE])
 
-    def result(self):
-        b, w = 0, 0
+    def result(self) -> dict:
         for x in range(8):
             for y in range(8):
                 if self.is_valid_move(self.turn, x, y):
-                    return None
+                    return {'status': 0}
+        b, w = 0, 0
+        disk = BLACK if self.turn == WHITE else WHITE
+        for x in range(8):
+            for y in range(8):
+                if self.is_valid_move(disk, x, y):
+                    return {'status': 1}
                 elif self._board[x][y] == BLACK:
                     b += 1
                 elif self._board[x][y] == WHITE:
                     w += 1
-        return {BLACK: b, WHITE: w}
 
-    def move(self, coord):
-        y, x = sorted(coord.lower())
-        x = 'abcdefgh'.find(x)
-        assert x >= 0, 'Invalid move ({}, {})'.format(x, y)
-        y = int(y) - 1
+        return {'status': 2, BLACK: b, WHITE: w}
+
+    def move(self, coord: str) -> None:
+        sorted_coord = sorted(coord.lower())
+        x = 'abcdefgh'.find(sorted_coord[1])
+        assert x >= 0, 'Invalid move {}'.format(coord)
+        y = int(sorted_coord[0]) - 1
 
         flipped = self.get_flipped(self.turn, x, y)
         if flipped:
@@ -72,10 +81,10 @@ class Board:
         else:
             raise ValueError('Invalid move ({}, {})'.format(x, y))
 
-    def is_on_board(self, x, y):
+    def is_on_board(self, x: int, y: int) -> bool:
         return 0 <= x <= 7 and 0 <= y <= 7
 
-    def get_valid_moves(self, disk):
+    def get_valid_moves(self, disk: str) -> list:
         moves = []
         for x in range(8):
             for y in range(8):
@@ -83,7 +92,7 @@ class Board:
                     moves.append((x, y))
         return moves
 
-    def is_valid_move(self, disk, x, y):
+    def is_valid_move(self, disk: str, x: int, y: int) -> bool:
         if not self.is_on_board(x, y) or self._board[x][y] != ' ':
             return False
         other_tile = WHITE if disk == BLACK else BLACK
@@ -96,7 +105,7 @@ class Board:
                 return True
         return False
 
-    def get_flipped(self, disk, x, y):
+    def get_flipped(self, disk: str, x: int, y: int) -> list:
         if not self.is_on_board(x, y) or self._board[x][y] != ' ':
             return []
 

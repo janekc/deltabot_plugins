@@ -1,47 +1,56 @@
 # -*- coding: utf-8 -*-
-import gettext
-import os
-import random
+from random import choice
 
-from simplebot import Plugin, PluginCommand
+from deltabot.hookspec import deltabot_hookimpl
 import wikiquote as wq
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
 
 
-class Wikiquote(Plugin):
+version = '1.0.0'
 
-    name = 'Wikiquote'
-    version = '0.3.0'
 
-    @classmethod
-    def activate(cls, bot):
-        super().activate(bot)
+# ======== Hooks ===============
 
-        localedir = os.path.join(os.path.dirname(__file__), 'locale')
-        lang = gettext.translation('simplebot_wikiquote', localedir=localedir,
-                                   languages=[bot.locale], fallback=True)
-        lang.install()
-        cls.description = _('Access Wikiquote content on Delta Chat.')
-        cls.commands = [
-            PluginCommand('/quote', ['[text]'], _('Search in Wikiquote or get the quote of the day if no text is given.'), cls.quote_cmd)]
-        cls.bot.add_commands(cls.commands)
+@deltabot_hookimpl
+def deltabot_init(bot: DeltaBot) -> None:
+    bot.commands.register(name="/quote", func=cmd_quote)
 
-    @classmethod
-    def quote_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        if ctx.locale in wq.supported_languages():
-            lang = ctx.locale
-        else:
-            lang = None
-        if ctx.text:
-            pages = wq.search(ctx.text, lang=lang)
-            if pages:
-                author = pages[0]
-                quote = '"{}"\n\n― {}'.format(random.choice(
-                    wq.quotes(author, max_quotes=100, lang=lang)), author)
+
+# ======== Commands ===============
+
+def cmd_quote(command: IncomingCommand, replies: Replies) -> None:
+    """Get Wikiquote quotes.
+
+    Search in Wikiquote or get the quote of the day if no text is given.
+    Example: `/quote Richard Stallman`
+    """
+    locale = get_locale(
+        command.bot, command.message.get_sender_contact().addr)
+    if locale in wq.supported_languages():
+        lang = locale
+    else:
+        lang = None
+    if command.payload:
+        authors = wq.search(command.payload, lang=lang)
+        if authors:
+            if command.payload.lower() == authors[0].lower():
+                author = authors[0]
             else:
-                quote = _('No quote found for: {}').format(ctx.text)
-            chat.send_text(quote)
+                author = choice(authors)
+            quote = '"{}"\n\n― {}'.format(
+                choice(wq.quotes(author, max_quotes=200, lang=lang)), author)
         else:
-            quote, author = wq.quote_of_the_day(lang=lang)
-            quote = '"{}"\n\n― {}'.format(quote, author)
-            chat.send_text(quote)
+            quote = 'No quote found for: {}'.format(command.payload)
+    else:
+        quote = '"{}"\n\n― {}'.format(*wq.quote_of_the_day(lang=lang))
+
+    replies.add(text=quote)
+
+
+# ======== Utilities ===============
+
+def get_locale(bot, addr: str) -> str:
+    return bot.get('locale', scope=addr) or bot.get('locale') or 'en'

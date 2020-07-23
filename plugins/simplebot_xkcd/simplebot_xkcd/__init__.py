@@ -1,46 +1,49 @@
 # -*- coding: utf-8 -*-
-import gettext
-import os
+from urllib.request import urlopen
+import io
 
-from simplebot import Plugin, PluginCommand
+from deltabot.hookspec import deltabot_hookimpl
 import xkcd
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
 
 
-class XKCD(Plugin):
+version = '1.0.0'
 
-    name = 'xkcd'
-    version = '0.1.0'
 
-    @classmethod
-    def activate(cls, bot):
-        super().activate(bot)
+# ======== Hooks ===============
 
-        localedir = os.path.join(os.path.dirname(__file__), 'locale')
-        lang = gettext.translation('simplebot_xkcd', localedir=localedir,
-                                   languages=[bot.locale], fallback=True)
-        lang.install()
+@deltabot_hookimpl
+def deltabot_init(bot: DeltaBot) -> None:
+    bot.commands.register(name='/xkcd', func=cmd_xkcd)
+    bot.commands.register(name='/xkcdlatest', func=cmd_latest)
 
-        cls.description = _('See xkcd.com comics in Delta Chat.')
-        cls.commands = [
-            PluginCommand('/xkcd', ['[num]'], _(
-                'Sends the comic with the give number or a ramdom comic if no number is provided.'), cls.xkcd_cmd),
-            PluginCommand('/xkcd/l', [], _('Sends the latest comic released in xkcd.'), cls.latest_cmd), ]
-        cls.bot.add_commands(cls.commands)
 
-    @classmethod
-    def _send_comic(cls, chat, comic):
-        text = '#{} - {}\n\n{}'.format(
-            comic.number, comic.title, comic.altText)
-        path = comic.download(cls.bot.get_blobdir())
-        cls.bot.send_file(chat, path, text, view_type='image')
+# ======== Commands ===============
 
-    @classmethod
-    def xkcd_cmd(cls, ctx):
-        comic = xkcd.getComic(
-            int(ctx.text)) if ctx.text else xkcd.getRandomComic()
-        cls._send_comic(cls.bot.get_chat(ctx.msg), comic)
+def cmd_xkcd(command: IncomingCommand, replies: Replies) -> None:
+    """Show the comic with the given number or a ramdom comic if no number is provided.
+    """
+    if command.payload:
+        comic = xkcd.getComic(int(command.payload))
+    else:
+        comic = xkcd.getRandomComic()
+    replies.add(**get_reply(comic))
 
-    @classmethod
-    def latest_cmd(cls, ctx):
-        comic = xkcd.getLatestComic()
-        cls._send_comic(cls.bot.get_chat(ctx.msg), comic)
+
+def cmd_latest(command: IncomingCommand, replies: Replies) -> None:
+    """Get the latest comic released in xkcd.com.
+    """
+    replies.add(**get_reply(xkcd.getLatestComic()))
+
+
+# ======== Utilities ===============
+
+def get_reply(comic: xkcd.Comic) -> dict:
+    image = urlopen(comic.imageLink).read()
+    text = '#{} - {}\n\n{}'.format(
+        comic.number, comic.title, comic.altText)
+    return dict(text=text, filename=comic.imageName,
+                bytefile=io.BytesIO(image))

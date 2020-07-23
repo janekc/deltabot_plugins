@@ -1,285 +1,261 @@
 # -*- coding: utf-8 -*-
-from threading import Thread, Event
-import gettext
-import os
+from threading import Thread
+from time import sleep
+from typing import Generator
 import re
+import os
 
-from simplebot import Plugin, PluginCommand, PluginFilter
 from .irc import IRCBot
 from .database import DBManager
+from deltabot.hookspec import deltabot_hookimpl
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
+from deltachat import Chat, Contact, Message
 
 
+version = '1.0.0'
 nick_re = re.compile(r'[a-zA-Z0-9]{1,30}$')
+dbot: DeltaBot
+db: DBManager
+irc_bridge: IRCBot
 
 
-class IRCBridge(Plugin):
+# ======== Hooks ===============
 
-    name = 'IRC Bridge'
-    version = '0.1.0'
+@deltabot_hookimpl
+def deltabot_init(bot: DeltaBot) -> None:
+    global dbot
+    dbot = bot
 
-    @classmethod
-    def activate(cls, bot):
-        super().activate(bot)
+    getdefault('nick', 'SimpleBot')
+    getdefault('host', 'irc.freenode.net')
+    getdefault('port', '6667')
+    getdefault('max_group_size', '20')
 
-        localedir = os.path.join(os.path.dirname(__file__), 'locale')
-        lang = gettext.translation(
-            'simplebot_irc', localedir=localedir,
-            languages=[bot.locale], fallback=True)
-        lang.install()
+    bot.filters.register(name=__name__, func=filter_messages)
 
-        save = False
-        cls.cfg = cls.bot.get_config(__name__)
-        if not cls.cfg.get('max_group_size'):
-            cls.cfg['max_group_size'] = '20'
-            save = True
-        if not cls.cfg.get('nick'):
-            cls.cfg['nick'] = 'SimpleBot'
-            save = True
-        if not cls.cfg.get('host'):
-            cls.cfg['host'] = 'irc.freenode.net'
-            save = True
-        if not cls.cfg.get('port'):
-            cls.cfg['port'] = '6667'
-            save = True
-        if save:
-            cls.bot.save_config()
+    dbot.commands.register('/irc_join', cmd_join)
+    dbot.commands.register('/irc_remove', cmd_remove)
+    dbot.commands.register('/irc_topic', cmd_topic)
+    dbot.commands.register('/irc_members', cmd_members)
+    dbot.commands.register('/irc_nick', cmd_nick)
 
-        cls.db = DBManager(os.path.join(
-            cls.bot.get_dir(__name__), 'irc.db'))
 
-        cls.bot.logger.debug('Starting IRC worker')
-        cls.connected = Event()
-        cls.worker = Thread(target=cls.listen_to_irc)
-        cls.worker.start()
-        cls.connected.wait()
-        cls.bot.logger.debug('Connected to IRC')
+@deltabot_hookimpl
+def deltabot_start(bot: DeltaBot) -> None:
+    global db, irc_bridge
 
-        cls.description = _('IRC <--> Delta Chat bridge.')
-        cls.filters = [PluginFilter(cls.process_messages)]
-        cls.bot.add_filters(cls.filters)
-        cls.commands = [
-            PluginCommand('/irc/join', ['<channel>'], _('Join the given channel'), cls.join_cmd),
-            PluginCommand('/irc/remove', ['[nick]'],
-                          _('Remove the member with the given nick from the channel, if no nick is given remove yourself'), cls.remove_cmd),
-            PluginCommand('/irc/topic', [],
-                          _('Show channel topic'), cls.topic_cmd),
-            PluginCommand('/irc/members', [],
-                          _('Show channel topic'), cls.members_cmd),
-            PluginCommand('/irc/nick', ['[nick]'],
-                          _('Set your nick or display your current nick if no new nick is given'), cls.nick_cmd)]
-        cls.bot.add_commands(cls.commands)
+    db = get_db(bot)
 
-    @classmethod
-    def get_cchats(cls, cname):
-        cname = cname.lower()
-        me = cls.bot.get_contact()
-        chats = []
-        invalid_chats = []
-        old_chats = cls.db.execute(
-            'SELECT id FROM cchats WHERE channel=?', (cname,))
-        for r in old_chats:
-            chat = cls.bot.get_chat(r[0])
-            if chat is None:
-                cls.db.commit('DELETE FROM cchats WHERE id=?', (r[0],))
-                continue
-            contacts = chat.get_contacts()
-            if me not in contacts or len(contacts) == 1:
-                invalid_chats.append(chat)
-            else:
-                chats.append(chat)
-        for chat in invalid_chats:
-            cls.db.commit('DELETE FROM cchats WHERE id=?', (chat.id,))
-            try:
-                chat.remove_contact(me)
-            except ValueError:
-                pass
-        if not chats:
-            cls.db.commit('DELETE FROM channels WHERE name=?', (cname,))
-            cls.irc.leave_channel(cname)
-        return chats
+    nick = getdefault('nick')
+    host = getdefault('host')
+    port = int(getdefault('port'))
+    irc_bridge = IRCBot(host, port, nick, db, bot)
+    Thread(target=run_irc, daemon=True).start()
 
-    @classmethod
-    def listen_to_irc(cls):
-        cls.irc = IRCBot(cls)
-        cls.irc.start()
 
-    @classmethod
-    def irc2dc(cls, channel, sender, msg):
-        for g in cls.get_cchats(channel):
-            g.send_text('{}[irc]:\n{}'.format(sender, msg))
+@deltabot_hookimpl
+def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
+    channel = db.get_channel_by_gid(chat.id)
+    if channel:
+        me = dbot.self_contact
+        if me == contact or len(chat.get_contacts()) <= 1:
+            db.remove_cchat(chat.id)
+            if next(db.get_cchats(channel), None) is None:
+                db.remove_channel(channel)
+                irc_bridge.leave_channel(channel)
 
-    @classmethod
-    def process_messages(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        r = cls.db.execute(
-            'SELECT channel from cchats WHERE id=?',
-            (chat.id,)).fetchone()
-        if not r:
-            return
 
-        ctx.processed = True
-        sender = ctx.msg.get_sender_contact()
-        me = cls.bot.get_contact()
-        contacts = chat.get_contacts()
+# ======== Filters ===============
 
-        if sender not in contacts or me not in contacts:
-            return
+def filter_messages(message: Message, replies: Replies) -> None:
+    """Process messages sent to an IRC channel.
+    """
+    chan = db.get_channel_by_gid(message.chat.id)
+    if not chan:
+        return
 
-        if not ctx.text or ctx.msg.filename:
-            chat.send_text(_('Unsupported message'))
-            return
+    if not message.text or message.filename:
+        replies.add(text='Unsupported message')
+        return
 
-        nick = cls.db.get_nick(sender.addr)
-        text = '{}[dc]: {}'.format(nick, ctx.text)
+    nick = db.get_nick(message.get_sender_contact().addr)
 
-        cls.irc.send_message(r[0], text)
-        for g in cls.get_cchats(r[0]):
-            if g.id != chat.id:
-                g.send_text(text)
+    for line in message.text.split('\n'):
+        irc_bridge.send_message(chan, '{}[dc]: {}'.format(nick, line))
 
-    @classmethod
-    def topic_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
+    text = '{}[dc]: {}'.format(nick, message.text)
+    for g in get_cchats(chan):
+        if g.id != message.chat.id:
+            replies.add(text=text, chat=g)
 
-        r = cls.db.execute(
-            'SELECT channel from cchats WHERE id=?',
-            (chat.id,)).fetchone()
-        if not r:
-            chat.send_text(_('This is not an IRC channel'))
-            return
 
-        topic = cls.irc.get_topic(r[0])
-        chat.send_text(_('Topic:\n{}').format(topic))
+# ======== Commands ===============
 
-    @classmethod
-    def members_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        me = cls.bot.get_contact()
+def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
+    """Show IRC channel topic.
+    """
+    chan = db.get_channel_by_gid(command.message.chat.id)
+    if not chan:
+        replies.add(text='This is not an IRC channel')
+    else:
+        replies.add(text='Topic:\n{}'.format(irc_bridge.get_topic(chan)))
 
-        r = cls.db.execute(
-            'SELECT channel from cchats WHERE id=?',
-            (chat.id,)).fetchone()
-        if not r:
-            chat.send_text(_('This is not an IRC channel'))
-            return
 
-        members = ''
-        for g in cls.get_cchats(r[0]):
-            for c in g.get_contacts():
-                if c != me:
-                    members += '• {}[dc]\n'.format(
-                        cls.db.get_nick(c.addr))
+def cmd_members(command: IncomingCommand, replies: Replies) -> None:
+    """Show list of IRC channel members.
+    """
+    me = command.bot.self_contact
 
-        for m in cls.irc.get_members(r[0]):
-            members += '• {}[irc]\n'.format(m)
+    chan = db.get_channel_by_gid(command.message.chat.id)
+    if not chan:
+        replies.add(text='This is not an IRC channel')
+        return
 
-        chat.send_text(_('Members:\n{}').format(members))
+    members = 'Members:\n'
+    for g in get_cchats(chan):
+        for c in g.get_contacts():
+            if c != me:
+                members += '• {}[dc]\n'.format(db.get_nick(c.addr))
 
-    @classmethod
-    def nick_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        addr = ctx.msg.get_sender_contact().addr
-        new_nick = ' '.join(ctx.text.split())
-        if new_nick:
-            if not nick_re.match(new_nick):
-                text = _(
-                    '** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters')
-            elif cls.db.execute('SELECT * FROM nicks WHERE nick=?', (new_nick,)).fetchone():
-                text = _('** Nick already taken')
-            else:
-                text = _('** Nick: {}').format(new_nick)
-                cls.db.commit(
-                    'INSERT OR REPLACE INTO nicks VALUES (?,?)', (addr, new_nick))
+    for m in irc_bridge.get_members(chan):
+        members += '• {}[irc]\n'.format(m)
+
+    replies.add(text=members)
+
+
+def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
+    """Set your IRC nick or display your current nick if no new nick is given.
+    """
+    addr = command.message.get_sender_contact().addr
+    new_nick = ' '.join(command.payload.split())
+    if new_nick:
+        if not nick_re.match(new_nick):
+            replies.add(text='** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters')
+        elif db.get_addr(new_nick):
+            replies.add(text='** Nick already taken')
         else:
-            text = _('** Nick: {}').format(cls.db.get_nick(addr))
-        chat.send_text(text)
+            db.set_nick(addr, new_nick)
+            replies.add(text='** Nick: {}'.format(new_nick))
+    else:
+        replies.add(text='** Nick: {}'.format(db.get_nick(addr)))
 
-    @classmethod
-    def join_cmd(cls, ctx):
-        sender = ctx.msg.get_sender_contact()
-        if not ctx.text or not cls.db.is_whitelisted(sender.addr):
+
+def cmd_join(command: IncomingCommand, replies: Replies) -> None:
+    """Join the given IRC channel.
+    """
+    sender = command.message.get_sender_contact()
+    if not command.payload:
+        return
+    if not db.is_whitelisted(command.payload):
+        replies.add(text="That channel isn't in the whitelist")
+        return
+
+    chats = get_cchats(command.payload)
+    if not db.channel_exists(command.payload):
+        irc_bridge.join_channel(command.payload)
+        db.add_channel(command.payload)
+
+    g = None
+    gsize = int(getdefault('max_group_size'))
+    for group in chats:
+        contacts = group.get_contacts()
+        if sender in contacts:
+            replies.add(
+                text='You are already a member of this group', chat=group)
+            return
+        if len(contacts) < gsize:
+            g = group
+            gsize = len(contacts)
+    if g is None:
+        g = dbot.create_group(command.payload, [sender])
+        db.add_cchat(g.id, command.payload)
+    else:
+        add_contact(g, sender)
+
+    nick = db.get_nick(sender.addr)
+    text = '** You joined {} as {}'.format(command.payload, nick)
+    replies.add(text=text, chat=g)
+
+
+def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
+    """Remove the member with the given nick from the IRC channel, if no nick is given remove yourself.
+    """
+    sender = command.message.get_sender_contact()
+
+    text = command.payload
+    channel = db.get_channel_by_gid(command.message.chat.id)
+    if not channel:
+        args = command.payload.split(maxsplit=1)
+        channel = args[0]
+        text = args[1] if len(args) == 2 else ''
+        for g in get_cchats(channel):
+            if sender in g.get_contacts():
+                break
+        else:
+            replies.add(text='You are not a member of that channel')
             return
 
-        ctx.text = ctx.text.lower()
-        ch = cls.db.execute(
-            'SELECT * FROM channels WHERE name=?',
-            (ctx.text,)).fetchone()
-        if ch:
-            chats = cls.get_cchats(ch['name'])
-        else:
-            cls.irc.join_channel(ctx.text)
-            cls.db.commit(
-                'INSERT INTO channels VALUES (?)', (ctx.text,))
-            ch = {'name': ctx.text}
-            chats = []
+    if not text:
+        text = sender.addr
+    if '@' not in text:
+        t = db.get_addr(text)
+        if not t:
+            replies.add(text='Unknow user: {}'.format(text))
+            return
+        text = t
 
-        g = None
-        gsize = cls.cfg.getint('max_group_size')
-        for group in chats:
-            contacts = group.get_contacts()
-            if sender in contacts:
-                group.send_text(
-                    _('You are already a member of this group'))
-                return
-            if len(contacts) < gsize:
-                g = group
-                gsize = len(contacts)
-        if g is None:
-            g = cls.bot.create_group(ch['name'], [sender])
-            cls.db.commit('INSERT INTO cchats VALUES (?,?)',
-                          (g.id, ch['name']))
-        else:
-            g.add_contact(sender)
-
-        nick = cls.db.get_nick(sender.addr)
-        text = _('** You joined {} as {}').format(ch['name'], nick)
-        g.send_text(text)
-
-    @classmethod
-    def remove_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        sender = ctx.msg.get_sender_contact()
-
-        r = cls.db.execute(
-            'SELECT channel from cchats WHERE id=?',
-            (chat.id,)).fetchone()
-        if r:
-            channel = r[0]
-        else:
-            args = ctx.text.split(maxsplit=1)
-            channel = args[0]
-            ctx.text = args[1] if len(args) == 2 else ''
-            for c in cls.get_cchats(channel):
-                if sender in c.get_contacts():
-                    break
-            else:
-                chat.send_message(
-                    _('You are not a member of that channel'))
-                return
-
-        if not ctx.text:
-            ctx.text = sender.addr
-        if '@' not in ctx.text:
-            r = cls.db.execute(
-                'SELECT addr FROM nicks WHERE nick=?',
-                (ctx.text,)).fetchone()
-            if not r:
-                chat.send_text(_('Unknow user: {}').format(ctx.text))
-                return
-            ctx.text = r[0]
-
-        for g in cls.get_cchats(channel):
-            for c in g.get_contacts():
-                if c.addr == ctx.text:
-                    g.remove_contact(c)
-                    if c == sender:
-                        return
-                    s_nick = cls.db.get_nick(sender.addr)
-                    nick = cls.db.get_nick(c.addr)
-                    text = _('** {} removed by {}').format(nick, s_nick)
-                    for g in cls.get_cchats(channel):
-                        g.send_text(text)
-                    text = _('Removed from {} by {}').format(
-                        channel, s_nick)
-                    cls.bot.get_chat(c).send_text(text)
+    for g in get_cchats(channel):
+        for c in g.get_contacts():
+            if c.addr == text:
+                g.remove_contact(c)
+                if c == sender:
                     return
+                s_nick = db.get_nick(sender.addr)
+                nick = db.get_nick(c.addr)
+                text = '** {} removed by {}'.format(nick, s_nick)
+                for g in get_cchats(channel):
+                    g.send_text(text)
+                text = 'Removed from {} by {}'.format(channel, s_nick)
+                replies.add(text=text, chat=dbot.get_chat(c))
+                return
+
+
+# ======== Utilities ===============
+
+def run_irc() -> None:
+    while True:
+        try:
+            irc_bridge.start()
+        except Exception as ex:
+            dbot.logger.exception('Error on IRC bridge: ', ex)
+            sleep(5)
+
+
+def getdefault(key: str, value: str = None) -> str:
+    val = dbot.get(key, scope=__name__)
+    if val is None and value is not None:
+        dbot.set(key, value, scope=__name__)
+        val = value
+    return val
+
+
+def get_cchats(channel: str) -> Generator:
+    for gid in db.get_cchats(channel):
+        yield dbot.get_chat(gid)
+
+
+def get_db(bot) -> DBManager:
+    path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return DBManager(os.path.join(path, 'sqlite.db'))
+
+
+def add_contact(chat: Chat, contact: Contact) -> None:
+    img_path = chat.get_profile_image()
+    if img_path and not os.path.exists(img_path):
+        chat.remove_profile_image()
+    chat.add_contact(contact)

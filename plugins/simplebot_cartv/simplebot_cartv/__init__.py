@@ -1,84 +1,118 @@
 # -*- coding: utf-8 -*-
-from datetime import datetime
-import gettext
-import html
-import os
-
-from simplebot import Plugin, PluginCommand
-import pytz
+from deltabot.hookspec import deltabot_hookimpl
 import requests
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
 
 
-url = "http://www.tvcubana.icrt.cu/cartv/cartv-core/app.php?action=dia&canal={0}&fecha={1}"
-
-tv_emoji = '📺'
-cal_emoji = '📆'
-aster_emoji = '✳'
-
-channels = [
-    'Cubavision',
-    'Telerebelde',
-    'Educativo',
-    'Educativo 2',
-    'Multivision',
-    'Canal Clave',
-    'Caribe',
-    'Habana'
-]
+version = '1.0.0'
+url = 'http://eprog2.tvcdigital.cu/programacion/{}'
+tv_emoji, cal_emoji, aster_emoji = '📺', '📆', '✳'
+channels = {
+    'Cubavisión': '5c096ea5bad1b202541503cf',
+    'Tele Rebelde': '596c6d34769cf31454a473aa',
+    'Educativo': '596c6d4f769cf31454a473ab',
+    'Educativo 2': '596c8107670d001588a8bfc1',
+    'Multivisión': '597eed8948124617b0d8b23a',
+    'Clave': '5a6a056c6c40dd21604965fd',
+    'Caribe': '5c5357124929db17b7429949',
+    'Habana': '5c42407f4fa5d131ce00f864',
+}
 
 
-class CarTV(Plugin):
+@deltabot_hookimpl
+def deltabot_init(bot: DeltaBot) -> None:
+    bot.commands.register(name="/cartv", func=cmd_cartv)
+    bot.commands.register(name="/cartvcv", func=cmd_cv)
+    bot.commands.register(name="/cartvtr", func=cmd_tr)
+    bot.commands.register(name="/cartved", func=cmd_ed)
+    bot.commands.register(name="/cartved2", func=cmd_ed2)
+    bot.commands.register(name="/cartvmv", func=cmd_mv)
+    bot.commands.register(name="/cartvcl", func=cmd_cl)
+    bot.commands.register(name="/cartvca", func=cmd_ca)
+    bot.commands.register(name="/cartvha", func=cmd_ha)
 
-    name = 'Cartelera TV'
-    version = '0.1.0'
 
-    @classmethod
-    def activate(cls, bot):
-        super().activate(bot)
+def cmd_cartv(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera de todos los canales de la TV cubana.
+    """
+    text = ''
+    for chan in channels.keys():
+        text += get_channel(chan) + '\n\n'
+    replies.add(text=text)
 
-        localedir = os.path.join(os.path.dirname(__file__), 'locale')
-        lang = gettext.translation('simplebot_cartv', localedir=localedir,
-                                   languages=[bot.locale], fallback=True)
-        lang.install()
 
-        cls.description = 'Muestra la cartelera de la TV cubana'
-        cls.long_description = 'Por ejemplo: /cartv Cubavision\n/cartv para mostrar todos los canales'
-        cls.commands = [
-            PluginCommand('/cartv', ['[canal]'], 'Mostrar cartelera para el canal dado', cls.cartv_cmd)]
-        cls.bot.add_commands(cls.commands)
+def cmd_cv(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera del canal Cubavisión.
+    """
+    replies.add(text=get_channel('Cubavisión'))
 
-    @classmethod
-    def cartv_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        eastern = pytz.timezone("US/Eastern")
-        today = datetime.now(eastern).strftime('%d-%m-%Y')
 
-        if ctx.text:
-            if ctx.text not in channels:
-                chat.send_text(
-                    'El canal puede ser:\n{}'.format('\n'.join(channels)))
-                return
-            chans = [ctx.text]
-        else:
-            chans = channels
+def cmd_tr(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera del canal Tele Rebelde.
+    """
+    replies.add(text=get_channel('Tele Rebelde'))
 
-        text = ''
-        for chan in chans:
-            with requests.get(url.format(chan, today)) as req:
-                req.raise_for_status()
-                text += cls.format_channel(req.text)
-            text += '\n\n'
-        chat.send_text(text)
 
-    @classmethod
-    def format_channel(cls, text):
-        lines = html.unescape(text).splitlines()
-        lines = [l.strip().replace('\t', ' ') for l in lines]
+def cmd_ed(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera del canal Educativo.
+    """
+    replies.add(text=get_channel('Educativo'))
 
-        text = '{} {}\n'.format(tv_emoji, lines[0])
-        text += '{} {}\n'.format(cal_emoji, lines[1])
 
-        for l in lines[2:]:
-            text += '{} {}\n'.format(aster_emoji, l)
+def cmd_ed2(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera del canal Educativo 2.
+    """
+    replies.add(text=get_channel('Educativo 2'))
 
-        return text
+
+def cmd_mv(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera del canal Multivisión.
+    """
+    replies.add(text=get_channel('Multivisión'))
+
+
+def cmd_cl(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera del canal Clave.
+    """
+    replies.add(text=get_channel('Clave'))
+
+
+def cmd_ca(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera del canal Caribe.
+    """
+    replies.add(text=get_channel('Caribe'))
+
+
+def cmd_ha(command: IncomingCommand, replies: Replies) -> None:
+    """Muestra la cartelera del canal Habana.
+    """
+    replies.add(text=get_channel('Habana'))
+
+
+# ======== Utilities ===============
+
+def get_channel(chan) -> str:
+    with requests.get(url.format(channels[chan])) as req:
+        req.raise_for_status()
+        prog = req.json()
+
+    text = '{} {}\n'.format(tv_emoji, chan)
+    date = None
+    for p in prog:
+        if date != p['fecha_inicial']:
+            date = p['fecha_inicial']
+            text += '{} {}\n'.format(cal_emoji, date)
+        time = p['hora_inicio'][:-3]
+        title = ' '.join(p['titulo'].split())
+        desc = ' '.join(p['descripcion'].split())
+        trans = p['transmision'].strip()
+        text += '{} {} {}\n'.format(
+            aster_emoji, time, '/'.join(e for e in (title, desc, trans) if e))
+
+    if not prog:
+        text += 'Cartelera no disponible.'
+
+    return text

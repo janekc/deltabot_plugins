@@ -2,40 +2,48 @@
 import re
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
-MODULE_NAME = 'simplebot_cartv'
-CLASS_NAME = 'CarTV'
-with open(os.path.join(MODULE_NAME, '__init__.py'), 'rt', encoding='utf8') as fh:
-    source = fh.read()
-PLUGIN_NAME = re.search(r'name = \'(.*?)\'', source, re.M).group(1)
-VERSION = re.search(r'version = \'(.*?)\'', source, re.M).group(1)
+if __name__ == "__main__":
+    module_name = 'simplebot_cartv'
 
-setup(
-    name=MODULE_NAME,
-    version=VERSION,
-    author='The SimpleBot Contributors',
-    author_email='adbenitez@nauta.cu',
-    description='A plugin for SimpleBot, a Delta Chat bot (http://delta.chat/)',
-    long_description='For more info visit https://github.com/adbenitez/simplebot',
-    long_description_content_type='text/x-rst',
-    url='https://github.com/adbenitez/simplebot',
-    classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Environment :: Plugins',
-        'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-        'Operating System :: OS Independent',
-        'Topic :: Utilities'
-    ],
-    keywords='deltachat simplebot plugin',
-    packages=[MODULE_NAME],
-    install_requires=['simplebot', 'requests'],
-    python_requires='>=3.5',
-    entry_points={
-        'simplebot.plugins': '{} = {}:{}'.format(PLUGIN_NAME, MODULE_NAME, CLASS_NAME)
-    },
-    include_package_data=True,
-    zip_safe=False,
-)
+    init_file = os.path.join(module_name, '__init__.py')
+    with open(init_file) as fh:
+        version = re.search(
+            r'version = \'(.*?)\'', fh.read(), re.M).group(1)
+
+    with open('README.rst') as fh:
+        long_description = fh.read()
+    with open('CHANGELOG.rst') as fh:
+        long_description += fh.read()
+    with open('LICENSE') as fh:
+        long_description += fh.read()
+
+    setup(
+        name=module_name,
+        version=version,
+        description='A plugin for SimpleBot, a Delta Chat(http://delta.chat/) bot',
+        long_description=long_description,
+        long_description_content_type='text/x-rst',
+        keywords='simplebot plugin deltachat',
+        license='MPL',
+        classifiers=[
+            'Development Status :: 3 - Alpha',
+            'Environment :: Plugins',
+            'Programming Language :: Python :: 3',
+            'License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)',
+            'Operating System :: OS Independent',
+            'Topic :: Utilities',
+        ],
+        zip_safe=False,
+        include_package_data=True,
+        packages=find_packages(),
+        install_requires=[
+            'deltabot',
+            'requests',
+        ],
+        entry_points={
+            'deltabot.plugins': '{0} = {0}'.format(module_name),
+        },
+    )

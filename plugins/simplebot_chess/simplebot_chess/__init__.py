@@ -1,266 +1,180 @@
 # -*- coding: utf-8 -*-
-import gettext
-import io
 import os
-import sqlite3
 
-from simplebot import Plugin, PluginCommand, PluginFilter
-from jinja2 import Environment, PackageLoader, select_autoescape
-import chess
-import chess.pgn
-
-
-def _(text):
-    return text
-
-
-ranks = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
-files = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭']
-pieces = {
-    'r': '♜',
-    'n': '♞',
-    'b': '♝',
-    'q': '♛',
-    'k': '♚',
-    'p': '♟',
-    'R': '♖',
-    'N': '♘',
-    'B': '♗',
-    'Q': '♕',
-    'K': '♔',
-    'P': '♙',
-    '.': ' ',
-}
+from .db import DBManager
+from deltabot.hookspec import deltabot_hookimpl
+import simplebot_chess.game as chgame
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
+from deltachat import Chat, Contact, Message
 
 
-def format(board):
-    text = '⬜|{}|⬜\n'.format('|'.join(files))
-    for i, line in enumerate(str(board).splitlines()):
-        text += '{}|'.format(ranks[7-i])
-        line = line.split()
-        for j, cell in enumerate(line, start=1):
-            if cell == '.':
-                text += '⬛' if (i+j) % 2 == 0 else '⬜'
-            else:
-                text += pieces[cell]
-            text += '|'
-        text += '{}\n'.format(ranks[7-i])
-    text += '⬜|{}|⬜\n'.format('|'.join(files))
-    return text
+version = '1.0.0'
+db: DBManager
+dbot: DeltaBot
 
 
-class Chess(Plugin):
+# ======== Hooks ===============
 
-    name = 'Chess'
-    version = '0.1.0'
+@deltabot_hookimpl
+def deltabot_init(bot: DeltaBot) -> None:
+    global db, dbot
+    dbot = bot
+    db = get_db(bot)
 
-    @classmethod
-    def activate(cls, bot):
-        super().activate(bot)
+    getdefault('theme', '0')
 
-        env = Environment(
-            loader=PackageLoader(__name__, 'templates'),
-            autoescape=select_autoescape(['html', 'xml'])
-        )
-        cls.template = env.get_template('board.html')
+    bot.filters.register(name=__name__, func=filter_messages)
 
-        cls.db = DBManager(os.path.join(
-            cls.bot.get_dir(__name__), 'chess.db'))
-
-        localedir = os.path.join(os.path.dirname(__file__), 'locale')
-        lang = gettext.translation('simplebot_chess', localedir=localedir,
-                                   languages=[bot.locale], fallback=True)
-        lang.install()
-
-        cls.description = _('Chess game to play with friends!')
-        cls.long_description = _(
-            'To move use Standard Algebraic Notation <https://en.wikipedia.org/wiki/Algebraic_notation_(chess)> or Long Algebraic Notation (without hyphens) <https://en.wikipedia.org/wiki/Universal_Chess_Interface>\nFor example, to move pawn from e2 to e4, send a message: e4, or a message: e2e4, to move knight from g1 to f3, send a message: Nf3, or a message: g1f3')
-        cls.filters = [PluginFilter(cls.process_messages)]
-        cls.bot.add_filters(cls.filters)
-        cls.commands = [
-            PluginCommand('/chess/play', ['<email>'],
-                          _('Invite a friend to play.'), cls.play_cmd),
-            PluginCommand('/chess/surrender', [],
-                          _('End the game in the group it is sent.'), cls.surrender_cmd),
-            PluginCommand(
-                '/chess/new', [], _('Start a new game in the current game group.'), cls.new_cmd),
-        ]
-        cls.bot.add_commands(cls.commands)
-
-    @classmethod
-    def deactivate(cls):
-        super().deactivate()
-        cls.db.close()
-
-    @classmethod
-    def run_turn(cls, chat):
-        r = cls.db.execute(
-            'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        game = chess.pgn.read_game(io.StringIO(r['game']))
-        b = game.board()
-        for move in game.mainline_moves():
-            b.push(move)
-        result = b.result()
-        kwargs = {
-            'plugin': cls,
-            'board': str(b),
-            'files': 'abcdefgh',
-            'ranks': '12345678',
-            'pieces': pieces,
-            'enumerate': enumerate}
-        if result == '*':
-            if b.turn == chess.WHITE:
-                turn = '♔ {}'.format(game.headers['White'])
-            else:
-                turn = '♚ {}'.format(game.headers['Black'])
-            text = _('{} is your turn...\n\n{}').format(turn, format(b))
-            html = cls.template.render(**kwargs)
-            cls.bot.send_html(chat, html, cls.name, text, None)
-        else:
-            if result == '1/2-1/2':
-                text = _('🤝 Game over.\nIt is a draw!\n\n{}').format(format(b))
-                html = cls.template.render(**kwargs)
-                cls.bot.send_html(chat, html, cls.name, text, None)
-            else:
-                if result == '1-0':
-                    winner = '♔ {}'.format(game.headers['White'])
-                else:
-                    winner = '♚ {}'.format(game.headers['Black'])
-                text = _('🏆 Game over.\n{} Wins!!!\n\n{}').format(
-                    winner, format(b))
-                html = cls.template.render(**kwargs)
-                cls.bot.send_html(chat, html, cls.name, text, None)
-            cls.db.commit('UPDATE games SET game=? WHERE players=?',
-                          (None, r['players']))
-
-    @classmethod
-    def play_cmd(cls, ctx):
-        if ctx.text:
-            p1 = ctx.msg.get_sender_contact().addr
-            p2 = ctx.text
-            if p1 == p2:
-                chat = cls.bot.get_chat(ctx.msg)
-                chat.send_text(_("You can't play with yourself"))
-                return
-            players = ','.join(sorted([p1, p2]))
-            r = cls.db.execute(
-                'SELECT * FROM games WHERE players=?', (players,)).fetchone()
-            if r is None:  # first time playing with p2
-                chat = cls.bot.create_group(
-                    '♞ {} 🆚 {} [{}]'.format(p1, p2, cls.name), [p1, p2])
-                game = chess.pgn.Game()
-                game.headers['White'] = p1
-                game.headers['Black'] = p2
-                cls.db.insert((players, chat.id, str(game)))
-                chat.send_text(
-                    _('Hello {1},\nYou have been invited by {0} to play {2}\n\n♔ White: {0}\n♚ Black: {1}').format(p1, p2, cls.name))
-                cls.run_turn(chat)
-            else:
-                chat = cls.bot.get_chat(r['gid'])
-                chat.send_text(
-                    _('You already has a game group with {}, to start a new game just send:\n/chess/new').format(p2))
-
-    @classmethod
-    def surrender_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        loser = ctx.msg.get_sender_contact().addr
-        game = cls.db.execute(
-            'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        # this is not your game group
-        if game is None or loser not in game['players'].split(','):
-            chat.send_text(
-                _('This is not your game group, please send that command in the game group you want to surrender'))
-        elif game['game'] is None:
-            chat.send_text(
-                _('There are no game running. To start a new game use /chess/new'))
-        else:
-            cls.db.commit('UPDATE games SET game=? WHERE players=?',
-                          (None, game['players']))
-            chat.send_text(_('🏳️ Game Over.\n{} Surrenders.').format(loser))
-
-    @classmethod
-    def new_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        sender = ctx.msg.get_sender_contact().addr
-        r = cls.db.execute(
-            'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        # this is not your game group
-        if r is None or sender not in r['players'].split(','):
-            chat.send_text(
-                _('This is not your game group, please send that command in the game group you want to start a new game'))
-        elif r['game'] is None:
-            game = chess.pgn.Game()
-            game.headers['White'] = sender
-            game.headers['Black'] = r['players'].replace(sender, '').strip(',')
-            cls.db.commit('UPDATE games SET game=? WHERE players=?',
-                          (str(game), r['players']))
-            chat.send_text(_('Game started!\n♔ White: {}\n♚ Black: {}').format(
-                sender, game.headers['Black']))
-            cls.run_turn(chat)
-        else:
-            chat.send_text(
-                _('There are a game running already, to start a new one first end this game'))
-
-    @classmethod
-    def process_messages(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        r = cls.db.execute(
-            'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        if r is None or r['game'] is None:
-            return
-        p1, p2 = map(cls.bot.get_contact, r['players'].split(','))
-        me = cls.bot.get_contact()
-        contacts = chat.get_contacts()
-        if me not in contacts or p1 not in contacts or p2 not in contacts:
-            cls.db.commit('DELETE FROM games WHERE players=?', (r['players'],))
-            chat.remove_contact(me)
-            return
-        if ' ' in ctx.text:
-            return
-
-        ctx.processed = True
-        game = chess.pgn.read_game(io.StringIO(r['game']))
-        board = game.board()
-        for move in game.mainline_moves():
-            board.push(move)
-        if board.turn == chess.WHITE:
-            turn = game.headers['White']
-        else:
-            turn = game.headers['Black']
-        player = ctx.msg.get_sender_contact().addr
-        if player == turn:
-            try:
-                try:
-                    move = board.push_san(ctx.text)
-                except ValueError:
-                    move = board.push_uci(ctx.text)
-                game.end().add_variation(move)
-                cls.db.commit('UPDATE games SET game=? WHERE players=?',
-                              (str(game), r['players']))
-                cls.run_turn(chat)
-            except (ValueError, AssertionError):
-                chat.send_text(_('❌ Invalid move!'))
+    dbot.commands.register('/chess_play', cmd_play)
+    dbot.commands.register('/chess_surrender', cmd_surrender)
+    dbot.commands.register('/chess_new', cmd_new)
+    dbot.commands.register('/chess_repeat', cmd_repeat)
 
 
-class DBManager:
-    def __init__(self, db_path):
-        self.db = sqlite3.connect(db_path)
-        self.db.row_factory = sqlite3.Row
-        self.commit('''CREATE TABLE IF NOT EXISTS games
-                       (players TEXT,
-                        gid INTEGER NOT NULL,
-                        game TEXT,
-                        PRIMARY KEY(players))''')
+@deltabot_hookimpl
+def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
+    game = db.get_game_by_gid(chat.id)
+    if game:
+        me = dbot.self_contact
+        if contact.addr in (me.addr, game['p1'], game['p2']):
+            db.delete_game(game['p1'], game['p2'])
+            if contact != me:
+                chat.remove_contact(me)
 
-    def execute(self, statement, args=()):
-        return self.db.execute(statement, args)
 
-    def commit(self, statement, args=()):
-        with self.db:
-            return self.db.execute(statement, args)
+# ======== Filters ===============
 
-    def insert(self, row):
-        self.commit('INSERT INTO games VALUES (?,?,?)', row)
+def filter_messages(message: Message, replies: Replies) -> None:
+    """Process move coordinates in Chess game groups
+    """
+    game = db.get_game_by_gid(message.chat.id)
+    if game is None or game['game'] is None or ' ' in message.text:
+        return
 
-    def close(self):
-        self.db.close()
+    b = chgame.Board(game['game'])
+    player = message.get_sender_contact().addr
+    if b.turn == player:
+        try:
+            b.move(message.text)
+            db.set_game(game['p1'], game['p2'], b.export())
+            replies.add(text=run_turn(message.chat.id))
+        except (ValueError, AssertionError):
+            replies.add(text='❌ Invalid move!')
+
+
+# ======== Commands ===============
+
+def cmd_play(command: IncomingCommand, replies: Replies) -> None:
+    """Invite a friend to play Chess.
+
+    Example: `/play friend@example.com`
+    To move use Standard Algebraic Notation or Long Algebraic Notation
+    (without hyphens), more info in Wikipedia.
+    For example, to move pawn from e2 to e4, send a message: e4 or: e2e4,
+    to move knight from g1 to f3, send a message: Nf3 or: g1f3
+    """
+    if not command.payload:
+        replies.add(text="Missing address")
+        return
+
+    if command.payload == command.bot.self_contact.addr:
+        replies.add(text="Sorry, I don't want to play")
+        return
+
+    p1 = command.message.get_sender_contact().addr
+    p2 = command.payload
+    if p1 == p2:
+        replies.add(text="You can't play with yourself")
+        return
+
+    g = db.get_game_by_players(p1, p2)
+
+    if g is None:  # first time playing with p2
+        chat = command.bot.create_group(
+            '♞ {} 🆚 {} [Chess]'.format(p1, p2), [p1, p2])
+        b = chgame.Board(p1=p1, p2=p2, theme=int(getdefault('theme')))
+        db.add_game(p1, p2, chat.id, b.export())
+        text = 'Hello {1},\nYou have been invited by {0} to play Chess'
+        text += '\n\n{} White: {}\n{} Black: {}\n\n'
+        text = text.format(b.theme['P'], p1, b.theme['p'], p2)
+        text += run_turn(chat.id)
+        replies.add(text=text, chat=chat)
+    else:
+        text = 'You already have a game group with {}'.format(p2)
+        replies.add(text=text, chat=command.bot.get_chat(g['gid']))
+
+
+def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
+    """End the Chess game in the group it is sent.
+    """
+    game = db.get_game_by_gid(command.message.chat.id)
+    loser = command.message.get_sender_contact().addr
+    if game is None or loser not in (game['p1'], game['p2']):
+        replies.add(text='This is not your game group')
+    elif game['game'] is None:
+        replies.add(text='There is no game running')
+    else:
+        db.set_game(game['p1'], game['p2'], None)
+        replies.add(text='🏳️ Game Over.\n{} surrenders.'.format(loser))
+
+
+def cmd_new(command: IncomingCommand, replies: Replies) -> None:
+    """Start a new Chess game in the current game group.
+    """
+    p1 = command.message.get_sender_contact().addr
+    game = db.get_game_by_gid(command.message.chat.id)
+    if game is None or p1 not in (game['p1'], game['p2']):
+        replies.add(text='This is not your game group')
+    elif game['game'] is None:
+        p2 = game['p2'] if p1 == game['p1'] else game['p1']
+        b = chgame.Board(p1=p1, p2=p2, theme=int(getdefault('theme')))
+        db.set_game(p1, p2, b.export())
+        text = 'Game started!\n{} White: {}\n{} Black: {}\n\n'.format(
+            b.theme['P'], p1, b.theme['p'], p2)
+        text += run_turn(command.message.chat.id)
+        replies.add(text=text)
+    else:
+        replies.add(text='There is a game running already')
+
+
+def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
+    """Send game board again.
+    """
+    replies.add(text=run_turn(command.message.chat.id))
+
+
+# ======== Utilities ===============
+
+def run_turn(gid: int) -> str:
+    g = db.get_game_by_gid(gid)
+    b = chgame.Board(g['game'], theme=int(getdefault('theme')))
+    result = b.result()
+    if result == '*':
+        return "{} {} it's your turn...\n\n{}".format(
+            b.theme['P'] if b.turn == b.white else b.theme['p'], b.turn, b)
+    db.set_game(g['p1'], g['p2'], None)
+    if result == '1/2-1/2':
+        return '🤝 Game over.\nIt is a draw!\n\n{}'.format(b)
+    if result == '1-0':
+        winner = '{} {}'.format(b.theme['P'], b.white)
+    else:
+        winner = '{} {}'.format(b.theme['p'], b.black)
+    return '🏆 Game over.\n{} Wins!!!\n\n{}'.format(winner, b)
+
+
+def getdefault(key: str, value: str = None) -> str:
+    val = dbot.get(key, scope=__name__)
+    if val is None and value is not None:
+        dbot.set(key, value, scope=__name__)
+        val = value
+    return val
+
+
+def get_db(bot: DeltaBot) -> DBManager:
+    path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return DBManager(os.path.join(path, 'sqlite.db'))

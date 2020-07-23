@@ -1,2 +1,2 @@
-recursive-include simplebot_chess/locale *
-recursive-include simplebot_chess/templates *
+include LICENSE
+include *.rst

@@ -1,1 +1,2 @@
-recursive-include simplebot_reversi/locale *
+include LICENSE
+include *.rst

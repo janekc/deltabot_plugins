@@ -1,8 +1,14 @@
 Changelog
 *********
 
-x.x.x
+1.0.0
+-----
+
+- port to new deltabot API
+
+
+0.4.0
 -----
 
 - initial release
-- add `/tr/list` command, to list supported languages `b582019`_
+- added `/tr/list` command, to list supported languages `b582019`_

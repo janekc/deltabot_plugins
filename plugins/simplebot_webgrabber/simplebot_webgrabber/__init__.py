@@ -1,236 +1,375 @@
 # -*- coding: utf-8 -*-
-from threading import Thread, BoundedSemaphore
 from urllib.parse import quote_plus, unquote_plus, quote
-import gettext
-import os
+import tempfile
+import io
 import re
 import mimetypes
+import zipfile
+import zlib
 
-from jinja2 import Environment, PackageLoader, select_autoescape
-from simplebot import Plugin, Mode, PluginCommand
+from deltabot.hookspec import deltabot_hookimpl
+from readability import Document
+from html2text import html2text
 import bs4
 import requests
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
 
 
-HEADERS = {
-    'user-agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0'}
+version = '1.0.0'
+zlib.Z_DEFAULT_COMPRESSION = 9
+ua = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0) Gecko/20100101'
+ua += ' Firefox/60.0'
+HEADERS = {'user-agent': ua}
+dbot: DeltaBot
 
 
-class WebGrabber(Plugin):
+class FileTooBig(ValueError):
+    pass
 
-    name = 'WebGrabber'
-    version = '0.3.0'
 
-    @classmethod
-    def activate(cls, bot):
-        super().activate(bot)
+# ======== Hooks ===============
 
-        cls.cfg = cls.bot.get_config(__name__)
-        if not cls.cfg.get('max-size'):
-            cls.cfg['max-size'] = '5242880'
-            cls.bot.save_config()
+@deltabot_hookimpl
+def deltabot_init(bot: DeltaBot) -> None:
+    global dbot
+    dbot = bot
 
-        cls.pool = BoundedSemaphore(value=4)
+    getdefault('max_size', 1024*1024*5)
 
-        cls.env = Environment(
-            loader=PackageLoader(__name__, 'templates'),
-            autoescape=select_autoescape(['html', 'xml'])
-        )
+    dbot.commands.register('/ddg', cmd_ddg)
+    dbot.commands.register('/wt', cmd_wt)
+    dbot.commands.register('/w', cmd_w)
+    dbot.commands.register('/wttr', cmd_wttr)
+    dbot.commands.register('/web', cmd_web)
+    dbot.commands.register('/read', cmd_read)
+    dbot.commands.register('/img', cmd_img)
+    dbot.commands.register('/img1', cmd_img1)
+    dbot.commands.register('/img5', cmd_img5)
+    dbot.commands.register('/lyrics', cmd_lyrics)
 
-        localedir = os.path.join(os.path.dirname(__file__), 'locale')
-        lang = gettext.translation('simplebot_webgrabber', localedir=localedir,
-                                   languages=[bot.locale], fallback=True)
-        lang.install()
 
-        cls.description = _('Access the web using DeltaChat.')
-        cls.commands = [
-            PluginCommand('/ddg', ['<text>'],
-                          _('Search in DuckDuckGo'), cls.ddg_cmd),
-            PluginCommand('/wt', ['<text>'],
-                          _('Search in Wiktionary'), cls.wt_cmd),
-            PluginCommand('/w', ['<text>'],
-                          _('Search in Wikipedia'), cls.w_cmd),
-            PluginCommand('/wttr', ['<text>'],
-                          _('Search weather info from wttr.in'), cls.wttr_cmd),
-            PluginCommand('/web', ['<url>'],
-                          _('Get a webpage or file'), cls.web_cmd),
-            PluginCommand('/web/app', [], _('Sends an html app to help you to use the plugin.'), cls.app_cmd)]
-        cls.bot.add_commands(cls.commands)
+# ======== Commands ===============
 
-        cls.NOSCRIPT = _(
-            'You need a browser with JavaScript support for this page to work correctly.')
+def cmd_ddg(command: IncomingCommand, replies: Replies) -> None:
+    """Search in DuckDuckGo.
+    """
+    mode = get_mode(command.message.get_sender_contact().addr)
+    page = 'lite' if mode == 'htmlzip' else 'html'
+    url = "https://duckduckgo.com/{}?q={}".format(
+        page, quote_plus(command.payload))
+    replies.add(**download_file(url, mode))
 
-    @classmethod
-    def send_page(cls, chat, url, mode):
-        if not url.startswith('http'):
-            url = 'http://'+url
-        try:
-            with requests.get(url, headers=HEADERS, stream=True) as r:
+
+def cmd_wt(command: IncomingCommand, replies: Replies) -> None:
+    """Search in Wiktionary.
+    """
+    sender = command.message.get_sender_contact().addr
+    lang = get_locale(sender)
+    url = "https://{}.m.wiktionary.org/wiki/?search={}".format(
+        lang, quote_plus(command.payload))
+    replies.add(**download_file(url, get_mode(sender)))
+
+
+def cmd_w(command: IncomingCommand, replies: Replies) -> None:
+    """Search in Wikipedia.
+    """
+    sender = command.message.get_sender_contact().addr
+    lang = get_locale(sender)
+    url = "https://{}.m.wikipedia.org/wiki/?search={}".format(
+        lang, quote_plus(command.payload))
+    replies.add(**download_file(url, get_mode(sender)))
+
+
+def cmd_wttr(command: IncomingCommand, replies: Replies) -> None:
+    """Search weather info from wttr.in
+    """
+    lang = get_locale(command.message.get_sender_contact().addr)
+    url = 'https://wttr.in/{}_Fnp_lang={}.png'.format(
+        quote(command.payload), lang)
+    reply = download_file(url)
+    reply.pop('text')
+    replies.add(**reply)
+
+
+def cmd_web(command: IncomingCommand, replies: Replies) -> None:
+    """Download a webpage or file.
+    """
+    mode = get_mode(command.message.get_sender_contact().addr)
+    try:
+        replies.add(**download_file(command.payload, mode))
+    except FileTooBig as err:
+        replies.add(text=str(err))
+
+
+def cmd_read(command: IncomingCommand, replies: Replies) -> None:
+    """Download a webpage and try to improve its readability.
+    """
+    mode = get_mode(command.message.get_sender_contact().addr)
+    try:
+        replies.add(**download_file(command.payload, mode, True))
+    except FileTooBig as err:
+        replies.add(text=str(err))
+
+
+def cmd_img(command: IncomingCommand, replies: Replies) -> None:
+    """Search for images, returns image links.
+    """
+    text = '\n\n'.join(get_images(command.payload))
+    if text:
+        replies.add(text='{}:\n\n{}'.format(command.payload, text))
+    else:
+        replies.add(text='No results for: {}'.format(command.payload))
+
+
+def cmd_img1(command: IncomingCommand, replies: Replies) -> None:
+    """Get an image based on the given text.
+    """
+    imgs = download_images(command.payload, 1)
+    if not imgs:
+        replies.add(text='No results for: {}'.format(command.payload))
+    else:
+        for reply in imgs:
+            replies.add(**reply)
+
+
+def cmd_img5(command: IncomingCommand, replies: Replies) -> None:
+    """Search for images, returns 5 results.
+    """
+    imgs = download_images(command.payload, 5)
+    if not imgs:
+        replies.add(text='No results for: {}'.format(command.payload))
+    else:
+        for reply in imgs:
+            replies.add(**reply)
+
+
+def cmd_lyrics(command: IncomingCommand, replies: Replies) -> None:
+    """Get song lyrics.
+    """
+    url = "https://lyrics.fandom.com/wiki/Special:Search?search={}&fulltext=Search".format(quote(command.payload))
+    with requests.get(url, headers=HEADERS) as r:
+        r.raise_for_status()
+        soup = bs4.BeautifulSoup(r.text, 'html.parser')
+    for li in soup('li', class_='result'):
+        a = li.h1.a
+        name = a.get_text().strip()
+        if ':' in name:
+            with requests.get(a['href'], headers=HEADERS) as r:
                 r.raise_for_status()
-                r.encoding = 'utf-8'
-                cls.bot.logger.debug(
-                    'Content type: {}'.format(r.headers['content-type']))
-                if 'text/html' in r.headers['content-type']:
-                    soup = bs4.BeautifulSoup(r.text, 'html5lib')
-                    [t.extract() for t in soup(
-                        ['script', 'iframe', 'noscript', 'link', 'meta'])]
-                    soup.head.append(soup.new_tag('meta', charset='utf-8'))
-                    [comment.extract() for comment in soup.find_all(
-                        text=lambda text: isinstance(text, bs4.Comment))]
-                    for b in soup(['button', 'input']):
-                        if b.has_attr('type') and b['type'] == 'hidden':
-                            b.extract()
-                        b.attrs['disabled'] = None
-                    for i in soup(['i', 'em', 'strong']):
-                        if not i.get_text().strip():
-                            i.extract()
-                    for f in soup('form'):
-                        del f['action'], f['method']
-                    for t in soup(['img']):
-                        src = t.get('src')
-                        if src:
-                            t.name = 'a'
-                            t['href'] = src
-                            alt = t.get('alt')
-                            if not alt:
-                                alt = 'IMAGE'
-                            t.string = '[{}]'.format(alt)
-                            del t['src'], t['alt']
+                soup = bs4.BeautifulSoup(r.text, 'html.parser')
+            lyricbox = soup.find('div', class_='lyricbox')
+            if lyricbox:
+                text = '{}\n\n{}'.format(name, html2text(str(lyricbox)))
+                replies.add(text=text)
+                return
 
-                            parent = t.find_parent('a')
-                            if parent:
-                                t.extract()
-                                parent.insert_before(t)
-                                contents = [e for e in parent.contents if not isinstance(
-                                    e, str) or e.strip()]
-                                if not contents:
-                                    parent.string = '(LINK)'
-                        else:
-                            t.extract()
-                    styles = [str(s) for s in soup.find_all('style')]
-                    for t in soup(lambda t: t.has_attr('class') or t.has_attr('id')):
-                        classes = []
-                        for c in t.get('class', []):
-                            for s in styles:
-                                if '.'+c in s:
-                                    classes.append(c)
-                                    break
-                        del t['class']
-                        if classes:
-                            t['class'] = ' '.join(classes)
-                        if t.get('id') is not None:
-                            for s in styles:
-                                if '#'+t['id'] in s:
-                                    break
-                            else:
-                                del t['id']
-                    if r.url.startswith('https://www.startpage.com'):
-                        for a in soup('a', href=True):
-                            url = a['href'].split(
-                                'startpage.com/cgi-bin/serveimage?url=')
-                            if len(url) == 2:
-                                a['href'] = unquote_plus(url[1])
+    replies.add(text='No results for: {}'.format(command.payload))
 
-                    index = r.url.find('/', 8)
-                    if index == -1:
-                        root = url = r.url
-                    else:
-                        root = r.url[:index]
-                        url = r.url.rsplit('/', 1)[0]
-                    bot_addr = cls.bot.get_address()
-                    for a in soup('a', href=True):
-                        if not a['href'].startswith('mailto:'):
-                            a['href'] = re.sub(
-                                r'^(//.*)', r'{}:\1'.format(root.split(':', 1)[0]), a['href'])
-                            a['href'] = re.sub(
-                                r'^(/.*)', r'{}\1'.format(root), a['href'])
-                            if not re.match(r'^https?://', a['href']):
-                                a['href'] = '{}/{}'.format(url, a['href'])
-                            a['href'] = 'mailto:{}?body=/web%20{}'.format(
-                                bot_addr, quote_plus(a['href']))
-                    # t = soup.new_tag('script')
-                    # t.string = cls.env.get_template('page.js').render(
-                    #     bot_addr=cls.bot.get_address(), root=root, url=url)
-                    # soup.body.append(t)
-                    cls.bot.send_html(
-                        chat, str(soup), cls.name, r.url, mode)
-                else:
-                    max_size = cls.cfg.getint('max-size')
-                    chunks = b''
-                    size = 0
-                    for chunk in r.iter_content(chunk_size=10240):
-                        chunks += chunk
-                        size += len(chunk)
-                        if size > max_size:
-                            chat.send_text(
-                                _('Only files smaller than {} Bytes are allowed').format(max_size))
-                            return
-                    else:
-                        d = r.headers.get('content-disposition')
-                        if d is not None and re.findall("filename=(.+)", d):
-                            fname = re.findall(
-                                "filename=(.+)", d)[0].strip('"')
-                        else:
-                            fname = r.url.split(
-                                '/').pop().split('?')[0].split('#')[0]
-                            if '.' not in fname:
-                                if not fname:
-                                    fname = 'file'
-                                ctype = r.headers.get(
-                                    'content-type', '').split(';')[0].strip().lower()
-                                if 'text/plain' == ctype:
-                                    ext = '.txt'
-                                elif 'image/jpeg' == ctype:
-                                    ext = '.jpg'
-                                else:
-                                    ext = mimetypes.guess_extension(ctype)
-                                if ext:
-                                    fname += ext
-                        fpath = cls.bot.get_blobpath(fname)
-                        with open(fpath, 'wb') as fd:
-                            fd.write(chunks)
-                        chat.send_file(fpath)
-        except Exception as ex:      # TODO: too much generic, change this
-            cls.bot.logger.exception(ex)
-            chat.send_text(_('Failed to get url:\n{}').format(url))
 
-    @classmethod
-    def app_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        template = cls.env.get_template('index.html')
-        html = template.render(plugin=cls, bot_addr=cls.bot.get_address())
-        cls.bot.send_html(chat, html, cls.name, ctx.msg.text, ctx.mode)
+# ======== Utilities ===============
 
-    @classmethod
-    def web_cmd(cls, ctx):
-        def _task():
-            with cls.pool:
-                cls.send_page(cls.bot.get_chat(ctx.msg), ctx.text, ctx.mode)
-        Thread(target=_task).start()
+def getdefault(key: str, value=None) -> str:
+    val = dbot.get(key, scope=__name__)
+    if val is None and value is not None:
+        dbot.set(key, value, scope=__name__)
+        val = value
+    return val
 
-    @classmethod
-    def ddg_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        mode = 'html' if ctx.mode == Mode.MD else 'lite'
-        url = "https://duckduckgo.com/{}?q={}".format(
-            mode, quote_plus(ctx.text))
-        cls.send_page(chat, url, ctx.mode)
 
-    @classmethod
-    def w_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        url = "https://{}.m.wikipedia.org/wiki/?search={}".format(
-            ctx.locale, quote_plus(ctx.text))
-        cls.send_page(chat, url, ctx.mode)
+def get_locale(addr: str) -> str:
+    return dbot.get('locale', scope=addr) or dbot.get('locale') or 'en'
 
-    @classmethod
-    def wt_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        url = "https://{}.m.wiktionary.org/wiki/?search={}".format(
-            ctx.locale, quote_plus(ctx.text))
-        cls.send_page(chat, url, ctx.mode)
 
-    @classmethod
-    def wttr_cmd(cls, ctx):
-        cls.send_page(cls.bot.get_chat(
-            ctx.msg), "https://wttr.in/{}_Fnp_lang={}.png".format(quote(ctx.text), ctx.locale), ctx.mode)
+def get_mode(addr: str) -> str:
+    return dbot.get('mode', scope=addr) or dbot.get('mode') or 'htmlzip'
+
+
+def html2read(html) -> str:
+    return Document(html).summary()
+
+
+def download_images(query: str, img_count: int) -> list:
+    imgs = get_images(query)
+    results = []
+    for img_url in imgs[:img_count]:
+        with requests.get(img_url, headers=HEADERS) as r:
+            r.raise_for_status()
+            filename = 'web' + (get_ext(r) or '.jpg')
+            results.append(
+                dict(filename=filename, bytefile=io.BytesIO(r.content)))
+    return results
+
+
+def get_images(query: str) -> list:
+    url = 'https://www.dogpile.com/search/images?q={}'.format(
+        quote_plus(query))
+    with requests.get(url, headers=HEADERS) as r:
+        r.raise_for_status()
+        soup = bs4.BeautifulSoup(r.text, 'html.parser')
+    soup = soup.find('div', class_='mainline-results')
+    if not soup:
+        return []
+    return [img['src'] for img in soup('img')]
+
+
+def process_html(r) -> str:
+    html, url = r.text, r.url
+    soup = bs4.BeautifulSoup(html, 'html5lib')
+    [t.extract() for t in soup(
+        ['script', 'iframe', 'noscript', 'link', 'meta'])]
+    soup.head.append(soup.new_tag('meta', charset='utf-8'))
+    [comment.extract() for comment in soup.find_all(
+        text=lambda text: isinstance(text, bs4.Comment))]
+    for b in soup(['button', 'input']):
+        if b.has_attr('type') and b['type'] == 'hidden':
+            b.extract()
+        b.attrs['disabled'] = None
+    for i in soup(['i', 'em', 'strong']):
+        if not i.get_text().strip():
+            i.extract()
+    for f in soup('form'):
+        del f['action'], f['method']
+    for t in soup(['img']):
+        src = t.get('src')
+        if not src:
+            t.extract()
+        elif not src.startswith('data:'):
+            t.name = 'a'
+            t['href'] = src
+            alt = t.get('alt')
+            if not alt:
+                alt = 'IMAGE'
+            t.string = '[{}]'.format(alt)
+            del t['src'], t['alt']
+
+            parent = t.find_parent('a')
+            if parent:
+                t.extract()
+                parent.insert_before(t)
+                contents = [e for e in parent.contents if not isinstance(
+                    e, str) or e.strip()]
+                if not contents:
+                    parent.string = '(LINK)'
+    styles = [str(s) for s in soup.find_all('style')]
+    for t in soup(lambda t: t.has_attr('class') or t.has_attr('id')):
+        classes = []
+        for c in t.get('class', []):
+            for s in styles:
+                if '.'+c in s:
+                    classes.append(c)
+                    break
+        del t['class']
+        if classes:
+            t['class'] = ' '.join(classes)
+        if t.get('id') is not None:
+            for s in styles:
+                if '#'+t['id'] in s:
+                    break
+            else:
+                del t['id']
+    if url.startswith('https://www.startpage.com'):
+        for a in soup('a', href=True):
+            u = a['href'].split(
+                'startpage.com/cgi-bin/serveimage?url=')
+            if len(u) == 2:
+                a['href'] = unquote_plus(u[1])
+
+    index = url.find('/', 8)
+    if index == -1:
+        root = url
+    else:
+        root = url[:index]
+        url = url.rsplit('/', 1)[0]
+    for a in soup('a', href=True):
+        if not a['href'].startswith('mailto:'):
+            a['href'] = re.sub(
+                r'^(//.*)', r'{}:\1'.format(root.split(':', 1)[0]), a['href'])
+            a['href'] = re.sub(
+                r'^(/.*)', r'{}\1'.format(root), a['href'])
+            if not re.match(r'^https?://', a['href']):
+                a['href'] = '{}/{}'.format(url, a['href'])
+            a['href'] = 'mailto:{}?body=/web%20{}'.format(
+                dbot.self_contact.addr, quote_plus(a['href']))
+    return str(soup)
+
+
+def process_file(r) -> tuple:
+    max_size = int(getdefault('max_size'))
+    data = b''
+    size = 0
+    for chunk in r.iter_content(chunk_size=10240):
+        data += chunk
+        size += len(chunk)
+        if size > max_size:
+            msg = 'Only files smaller than {} Bytes are allowed'
+            raise FileTooBig(msg.format(max_size))
+
+    return (data, get_ext(r))
+
+
+def get_ext(r) -> str:
+    d = r.headers.get('content-disposition')
+    if d is not None and re.findall("filename=(.+)", d):
+        fname = re.findall(
+            "filename=(.+)", d)[0].strip('"')
+    else:
+        fname = r.url.split('/')[-1].split('?')[0].split('#')[0]
+    if '.' in fname:
+        ext = '.' + fname.rsplit('.', maxsplit=1)[-1]
+    else:
+        ctype = r.headers.get(
+            'content-type', '').split(';')[0].strip().lower()
+        if 'text/plain' == ctype:
+            ext = '.txt'
+        elif 'image/jpeg' == ctype:
+            ext = '.jpg'
+        else:
+            ext = mimetypes.guess_extension(ctype)
+    return ext
+
+
+def save_file(data, ext: str) -> str:
+    fd, path = tempfile.mkstemp(prefix='web-', suffix=ext)
+    if isinstance(data, str):
+        mode = 'w'
+    else:
+        mode = 'wb'
+    with open(fd, mode) as f:
+        f.write(data)
+    return path
+
+
+def save_htmlzip(html) -> str:
+    fd, path = tempfile.mkstemp(prefix='web-', suffix='.html.zip')
+    with open(fd, 'wb') as f:
+        with zipfile.ZipFile(f, 'w', compression=zipfile.ZIP_DEFLATED) as fzip:
+            fzip.writestr('index.html', html)
+    return path
+
+
+def download_file(url: str, mode: str = 'htmlzip',
+                  readability: bool = False) -> dict:
+    if '://' not in url:
+        url = 'http://'+url
+    with requests.get(url, headers=HEADERS, stream=True) as r:
+        r.raise_for_status()
+        r.encoding = 'utf-8'
+        dbot.logger.debug(
+            'Content type: {}'.format(r.headers['content-type']))
+        if 'text/html' in r.headers['content-type']:
+            if mode == 'text':
+                html = html2read(r.text) if readability else r.text
+                return dict(text=html2text(html))
+            html = process_html(r)
+            if readability:
+                html = html2read(html)
+            if mode == 'md':
+                return dict(text=r.url,
+                            filename=save_file(html2text(html), '.md'))
+            return dict(text=r.url, filename=save_htmlzip(html))
+        data, ext = process_file(r)
+        return dict(text=r.url, filename='web'+(ext or ''),
+                    bytefile=io.BytesIO(data))

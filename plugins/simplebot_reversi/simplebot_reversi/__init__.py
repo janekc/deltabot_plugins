@@ -1,212 +1,189 @@
 # -*- coding: utf-8 -*-
-import gettext
 import os
-import sqlite3
 
-from simplebot import Plugin, PluginCommand, PluginFilter
+from .database import DBManager
+from deltabot.hookspec import deltabot_hookimpl
 import simplebot_reversi.reversi as reversi
+# typing:
+from deltabot import DeltaBot
+from deltabot.bot import Replies
+from deltabot.commands import IncomingCommand
+from deltachat import Chat, Contact, Message
 
 
-def _(text):
-    return text
+version = '1.0.0'
+db: DBManager
+dbot: DeltaBot
 
 
-class Reversi(Plugin):
+# ======== Hooks ===============
 
-    name = 'Reversi'
-    version = '0.1.0'
+@deltabot_hookimpl
+def deltabot_init(bot: DeltaBot) -> None:
+    global db, dbot
+    dbot = bot
+    db = get_db(bot)
 
-    @classmethod
-    def activate(cls, bot):
-        super().activate(bot)
+    bot.filters.register(name=__name__, func=filter_messages)
 
-        cls.db = DBManager(os.path.join(
-            cls.bot.get_dir(__name__), 'reversi.db'))
+    dbot.commands.register('/reversi_play', cmd_play)
+    dbot.commands.register('/reversi_surrender', cmd_surrender)
+    dbot.commands.register('/reversi_new', cmd_new)
+    dbot.commands.register('/reversi_repeat', cmd_repeat)
 
-        localedir = os.path.join(os.path.dirname(__file__), 'locale')
-        lang = gettext.translation('simplebot_reversi', localedir=localedir,
-                                   languages=[bot.locale], fallback=True)
-        lang.install()
 
-        cls.description = _('Reversi game to play with friends!')
-        cls.long_description = _(
-            'To move use a1, b3, etc.\nTo learn about Reversi and the game rules read: `https://en.wikipedia.org/wiki/Reversi')
-        cls.filters = [PluginFilter(cls.process_messages)]
-        cls.bot.add_filters(cls.filters)
-        cls.commands = [
-            PluginCommand('/reversi/play', ['<email>'],
-                          _('Invite a friend to play.'), cls.play_cmd),
-            PluginCommand('/reversi/surrender', [],
-                          _('End the game in the group it is sent.'), cls.surrender_cmd),
-            PluginCommand(
-                '/reversi/new', [], _('Start a new game in the current game group.'), cls.new_cmd),
-        ]
-        cls.bot.add_commands(cls.commands)
+@deltabot_hookimpl
+def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
+    game = db.get_game_by_gid(chat.id)
+    if game:
+        me = dbot.self_contact
+        p1, p2 = game['p1'], game['p2']
+        if contact.addr in (me.addr, p1, p2):
+            db.delete_game(p1, p2)
+            if contact != me:
+                chat.remove_contact(me)
 
-    @classmethod
-    def deactivate(cls):
-        super().deactivate()
-        cls.db.close()
 
-    @classmethod
-    def run_turn(cls, chat):
-        r = cls.db.execute(
-            'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        b = reversi.Board(r['board'])
-        result = b.result()
-        if result is None:
-            if b.turn == reversi.BLACK:
+# ======== Filters ===============
+
+def filter_messages(message: Message, replies: Replies) -> None:
+    """Process move coordinates in Reversi game groups
+    """
+    game = db.get_game_by_gid(message.chat.id)
+    if game is None or game['board'] is None or len(message.text) != 2:
+        return
+
+    b = reversi.Board(game['board'])
+    player = message.get_sender_contact().addr
+    player = reversi.BLACK if game['black'] == player else reversi.WHITE
+    if b.turn == player:
+        try:
+            b.move(message.text)
+            db.set_board(game['p1'], game['p2'], b.export())
+            replies.add(text=run_turn(message.chat.id))
+        except (ValueError, AssertionError):
+            replies.add(text='❌ Invalid move!')
+
+
+# ======== Commands ===============
+
+def cmd_play(command: IncomingCommand, replies: Replies) -> None:
+    """Invite a friend to play Reversi.
+
+    Example: `/play friend@example.com`
+    """
+    if not command.payload:
+        replies.add(text="Missing address")
+        return
+
+    if command.payload == command.bot.self_contact.addr:
+        replies.add(text="Sorry, I don't want to play")
+        return
+
+    p1 = command.message.get_sender_contact().addr
+    p2 = command.payload
+    if p1 == p2:
+        replies.add(text="You can't play with yourself")
+        return
+
+    g = db.get_game_by_players(p1, p2)
+
+    if g is None:  # first time playing with p2
+        b = reversi.DISKS[reversi.BLACK]
+        w = reversi.DISKS[reversi.WHITE]
+        chat = command.bot.create_group(
+            '{} {} 🆚 {} [Reversi]'.format(b, p1, p2), [p1, p2])
+        db.add_game(p1, p2, chat.id, reversi.Board().export(), p1)
+        text = 'Hello {1},\nYou have been invited by {0} to play Reversi'
+        text += '\n\n{2}: {0}\n{3}: {1}\n\n'
+        text = text.format(p1, p2, b, w)
+        replies.add(text=text + run_turn(chat.id), chat=chat)
+    else:
+        text = 'You already have a game group with {}'.format(p2)
+        replies.add(text=text, chat=command.bot.get_chat(g['gid']))
+
+
+def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
+    """End the Reversi game in the group it is sent.
+    """
+    game = db.get_game_by_gid(command.message.chat.id)
+    loser = command.message.get_sender_contact().addr
+    # this is not your game group
+    if game is None or loser not in (game['p1'], game['p2']):
+        replies.add(text='This is not your game group')
+    elif game['board'] is None:
+        replies.add(text='There is no game running')
+    else:
+        db.set_board(game['p1'], game['p2'], None)
+        replies.add(text='🏳️ Game Over.\n{} surrenders.'.format(loser))
+
+
+def cmd_new(command: IncomingCommand, replies: Replies) -> None:
+    """Start a new Reversi game in the current game group.
+    """
+    sender = command.message.get_sender_contact().addr
+    game = db.get_game_by_gid(command.message.chat.id)
+    # this is not your game group
+    if game is None or sender not in (game['p1'], game['p2']):
+        replies.add(text='This is not your game group')
+    elif game['board'] is None:
+        board = reversi.Board()
+        db.set_game(game['p1'], game['p2'], board.export(), sender)
+        b = reversi.DISKS[reversi.BLACK]
+        w = reversi.DISKS[reversi.WHITE]
+        p2 = game['p2'] if sender == game['p1'] else game['p1']
+        text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
+            b, sender, w, p2)
+        replies.add(text=text + run_turn(command.message.chat.id))
+    else:
+        replies.add(text='There is a game running already')
+
+
+def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
+    """Send game board again.
+    """
+    replies.add(text=run_turn(command.message.chat.id))
+
+
+# ======== Utilities ===============
+
+def run_turn(gid: int) -> str:
+    g = db.get_game_by_gid(gid)
+    b = reversi.Board(g['board'])
+    result = b.result()
+    if result['status'] in (0, 1):
+        if result['status'] == 1:
+            b.turn = reversi.BLACK if b.turn == reversi.WHITE else reversi.WHITE
+            db.set_board(g['p1'], g['p2'], b.export())
+        if b.turn == reversi.BLACK:
+            disk = reversi.DISKS[reversi.BLACK]
+            turn = '{} {}'.format(disk, g['black'])
+        else:
+            disk = reversi.DISKS[reversi.WHITE]
+            p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
+            turn = '{} {}'.format(disk, p2)
+        return "{} it's your turn...\n\n{}\n\n{}".format(
+            turn, b, b.get_score())
+    else:
+        db.set_board(g['p1'], g['p2'], None)
+        black, white = result[reversi.BLACK], result[reversi.WHITE]
+        if black == white:
+            return '🤝 Game over.\nIt is a draw!\n\n{}\n\n{}'.format(
+                b, b.get_score())
+        else:
+            if black > white:
                 disk = reversi.DISKS[reversi.BLACK]
-                turn = '{} {}'.format(disk, r['black'])
+                winner = '{} {}'.format(disk, g['black'])
             else:
                 disk = reversi.DISKS[reversi.WHITE]
-                p2 = r['players'].replace(r['black'], '').strip(',')
-                turn = '{} {}'.format(disk, p2)
-            text = _("{} it's your turn...\n\n{}\n\n{}").format(
-                turn, b, b.get_score())
-            chat.send_text(text)
-        else:
-            black, white = result[reversi.BLACK], result[reversi.WHITE]
-            if black == white:
-                text = _('🤝 Game over.\nIt is a draw!\n\n{}\n\n{}').format(
-                    b, b.get_score())
-                chat.send_text(text)
-            else:
-                if black > white:
-                    disk = reversi.DISKS[reversi.BLACK]
-                    winner = '{} {}'.format(disk, r['black'])
-                else:
-                    disk = reversi.DISKS[reversi.WHITE]
-                    p2 = r['players'].replace(r['black'], '').strip(',')
-                    winner = '{} {}'.format(disk, p2)
-                text = _('🏆 Game over.\n{} Wins!!!\n\n{}\n\n{}').format(
-                    winner, b, b.get_score())
-                chat.send_text(text)
-            cls.db.commit('UPDATE games SET board=? WHERE players=?',
-                          (None, r['players']))
-
-    @classmethod
-    def play_cmd(cls, ctx):
-        if ctx.text:
-            p1 = ctx.msg.get_sender_contact().addr
-            p2 = ctx.text
-            if p1 == p2:
-                chat = cls.bot.get_chat(ctx.msg)
-                chat.send_text(_("You can't play with yourself"))
-                return
-            players = ','.join(sorted([p1, p2]))
-            r = cls.db.execute(
-                'SELECT * FROM games WHERE players=?', (players,)).fetchone()
-            if r is None:  # first time playing with p2
-                disk = reversi.DISKS[reversi.BLACK]
-                chat = cls.bot.create_group(
-                    '{} {} 🆚 {} [{}]'.format(disk, p1, p2, cls.name), [p1, p2])
-                b = reversi.Board()
-                cls.db.insert((players, chat.id, b.export(), p1))
-                b = reversi.DISKS[reversi.BLACK]
-                w = reversi.DISKS[reversi.WHITE]
-                chat.send_text(
-                    _('Hello {1},\nYou have been invited by {0} to play {2}\n\n{3}: {0}\n{4}: {1}').format(p1, p2, cls.name, b, w))
-                cls.run_turn(chat)
-            else:
-                chat = cls.bot.get_chat(r['gid'])
-                chat.send_text(
-                    _('You already has a game group with {}, to start a new game just send:\n/reversi/new').format(p2))
-
-    @classmethod
-    def surrender_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        loser = ctx.msg.get_sender_contact().addr
-        game = cls.db.execute(
-            'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        # this is not your game group
-        if game is None or loser not in game['players'].split(','):
-            chat.send_text(
-                _('This is not your game group, please send that command in the game group you want to surrender'))
-        elif game['board'] is None:
-            chat.send_text(
-                _('There are no game running. To start a new game use /reversi/new'))
-        else:
-            cls.db.commit('UPDATE games SET board=? WHERE players=?',
-                          (None, game['players']))
-            chat.send_text(_('🏳️ Game Over.\n{} Surrenders.').format(loser))
-
-    @classmethod
-    def new_cmd(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        sender = ctx.msg.get_sender_contact().addr
-        r = cls.db.execute(
-            'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        # this is not your game group
-        if r is None or sender not in r['players'].split(','):
-            chat.send_text(
-                _('This is not your game group, please send that command in the game group you want to start a new game'))
-        elif r['board'] is None:
-            b = reversi.Board()
-            cls.db.commit('UPDATE games SET board=?, black=? WHERE players=?',
-                          (b.export(), sender, r['players']))
-            b = reversi.DISKS[reversi.BLACK]
-            w = reversi.DISKS[reversi.WHITE]
-            p2 = r['players'].replace(sender, '').strip(',')
-            chat.send_text(_('Game started!\n{}: {}\n{}: {}').format(
-                b, sender, w, p2))
-            cls.run_turn(chat)
-        else:
-            chat.send_text(
-                _('There are a game running already, to start a new one first end this game'))
-
-    @classmethod
-    def process_messages(cls, ctx):
-        chat = cls.bot.get_chat(ctx.msg)
-        r = cls.db.execute(
-            'SELECT * FROM games WHERE gid=?', (chat.id,)).fetchone()
-        if r is None or r['board'] is None:
-            return
-        p1, p2 = map(cls.bot.get_contact, r['players'].split(','))
-        me = cls.bot.get_contact()
-        contacts = chat.get_contacts()
-        if me not in contacts or p1 not in contacts or p2 not in contacts:
-            cls.db.commit('DELETE FROM games WHERE players=?', (r['players'],))
-            chat.remove_contact(me)
-            return
-        if len(ctx.text) != 2:
-            return
-
-        ctx.processed = True
-        b = reversi.Board(r['board'])
-        player = ctx.msg.get_sender_contact().addr
-        player = reversi.BLACK if r['black'] == player else reversi.WHITE
-        if b.turn == player:
-            try:
-                b.move(ctx.text)
-                cls.db.commit('UPDATE games SET board=? WHERE players=?',
-                              (b.export(), r['players']))
-                cls.run_turn(chat)
-            except (ValueError, AssertionError) as ex:
-                cls.bot.logger.exception(ex)
-                chat.send_text(_('❌ Invalid move!'))
+                p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
+                winner = '{} {}'.format(disk, p2)
+            return '🏆 Game over.\n{} Wins!!!\n\n{}\n\n{}'.format(
+                winner, b, b.get_score())
 
 
-class DBManager:
-    def __init__(self, db_path):
-        self.db = sqlite3.connect(db_path)
-        self.db.row_factory = sqlite3.Row
-        self.commit('''CREATE TABLE IF NOT EXISTS games
-                       (players TEXT,
-                        gid INTEGER NOT NULL,
-                        board TEXT,
-                        black TEXT,
-                        PRIMARY KEY(players))''')
-
-    def execute(self, statement, args=()):
-        return self.db.execute(statement, args)
-
-    def commit(self, statement, args=()):
-        with self.db:
-            return self.db.execute(statement, args)
-
-    def insert(self, row):
-        self.commit('INSERT INTO games VALUES (?,?,?,?)', row)
-
-    def close(self):
-        self.db.close()
+def get_db(bot: DeltaBot) -> DBManager:
+    path = os.path.join(os.path.dirname(bot.account.db_path), __name__)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return DBManager(os.path.join(path, 'sqlite.db'))
