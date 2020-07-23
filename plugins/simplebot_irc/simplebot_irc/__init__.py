@@ -33,10 +33,13 @@ def deltabot_init(bot: DeltaBot) -> None:
     getdefault('host', 'irc.freenode.net')
     getdefault('port', '6667')
     getdefault('max_group_size', '20')
+    allow_bridging = getdefault('allow_bridging', '1')
 
     bot.filters.register(name=__name__, func=filter_messages)
 
     dbot.commands.register('/irc_join', cmd_join)
+    if allow_bridging:
+        dbot.commands.register('/irc_bridge', cmd_bridge)
     dbot.commands.register('/irc_remove', cmd_remove)
     dbot.commands.register('/irc_topic', cmd_topic)
     dbot.commands.register('/irc_members', cmd_members)
@@ -148,16 +151,17 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     """
     sender = command.message.get_sender_contact()
     if not command.payload:
+        replies.add(text="Wrong syntax")
         return
     if not db.is_whitelisted(command.payload):
         replies.add(text="That channel isn't in the whitelist")
         return
 
-    chats = get_cchats(command.payload)
     if not db.channel_exists(command.payload):
-        irc_bridge.join_channel(command.payload)
         db.add_channel(command.payload)
+        irc_bridge.join_channel(command.payload)
 
+    chats = get_cchats(command.payload)
     g = None
     gsize = int(getdefault('max_group_size'))
     for group in chats:
@@ -178,6 +182,30 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     nick = db.get_nick(sender.addr)
     text = '** You joined {} as {}'.format(command.payload, nick)
     replies.add(text=text, chat=g)
+
+
+def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
+    """Bridge current group to the given IRC channel.
+    """
+    if not command.payload:
+        replies.add(text="Wrong syntax")
+        return
+    if not db.is_whitelisted(command.payload):
+        replies.add(text="That channel isn't in the whitelist")
+        return
+    channel = db.get_channel_by_gid(command.message.chat.id)
+    if channel:
+        replies.add(text="This chat is already bridged to channel: {}".format(channel))
+        return
+
+    if not db.channel_exists(command.payload):
+        db.add_channel(command.payload)
+        irc_bridge.join_channel(command.payload)
+
+    db.add_cchat(command.message.chat.id, command.payload)
+    text = '** This chat is now bridged with IRC channel: {}'.format(
+        command.payload)
+    replies.add(text=text)
 
 
 def cmd_remove(command: IncomingCommand, replies: Replies) -> None:

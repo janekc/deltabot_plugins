@@ -32,10 +32,13 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     getdefault('nick', 'DC-Bridge')
     getdefault('max_group_size', '20')
+    allow_bridging = getdefault('allow_bridging', '1')
 
     bot.filters.register(name=__name__, func=filter_messages)
 
     dbot.commands.register('/xmpp_join', cmd_join)
+    if allow_bridging:
+        dbot.commands.register('/xmpp_bridge', cmd_bridge)
     dbot.commands.register('/xmpp_remove', cmd_remove)
     dbot.commands.register('/xmpp_members', cmd_members)
     dbot.commands.register('/xmpp_nick', cmd_nick)
@@ -139,16 +142,17 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     """
     sender = command.message.get_sender_contact()
     if not command.payload:
+        replies.add(text="Wrong syntax")
         return
     if not db.is_whitelisted(command.payload):
         replies.add(text="That channel isn't in the whitelist")
         return
 
-    chats = get_cchats(command.payload)
     if not db.channel_exists(command.payload):
         xmpp_bridge.join_channel(command.payload)
         db.add_channel(command.payload)
 
+    chats = get_cchats(command.payload)
     g = None
     gsize = int(getdefault('max_group_size'))
     for group in chats:
@@ -169,6 +173,30 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     nick = db.get_nick(sender.addr)
     replies.add(text='** You joined {} as {}'.format(
         command.payload, nick))
+
+
+def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
+    """Bridge current group to the given XMPP channel.
+    """
+    if not command.payload:
+        replies.add(text="Wrong syntax")
+        return
+    if not db.is_whitelisted(command.payload):
+        replies.add(text="That channel isn't in the whitelist")
+        return
+    channel = db.get_channel_by_gid(command.message.chat.id)
+    if channel:
+        replies.add(text="This chat is already bridged with channel: {}".format(channel))
+        return
+
+    if not db.channel_exists(command.payload):
+        db.add_channel(command.payload)
+        xmpp_bridge.join_channel(command.payload)
+
+    db.add_cchat(command.message.chat.id, command.payload)
+    text = '** This chat is now bridged with XMPP channel: {}'.format(
+        command.payload)
+    replies.add(text=text)
 
 
 def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
