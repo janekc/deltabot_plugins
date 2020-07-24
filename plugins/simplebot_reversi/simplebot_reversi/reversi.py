@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-from typing import Optional
-
-
 BLACK = 'x'
 WHITE = 'o'
 COLS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣']
@@ -10,7 +7,7 @@ DISKS = {BLACK: '🔴', WHITE: '🔵', ' ': '⬜', 'V': '🔲'}
 
 
 class Board:
-    def __init__(self, board=None):
+    def __init__(self, board=None) -> None:
         if board:
             lines = board.split('\n')
             self.turn = lines[0]

@@ -50,7 +50,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Reversi game groups
     """
     game = db.get_game_by_gid(message.chat.id)
-    if game is None or game['board'] is None or len(message.text) != 2:
+    if game is None or game['board'] is None or not message.text.isalnum() or len(message.text) != 2:
         return
 
     b = reversi.Board(game['board'])
