@@ -38,10 +38,9 @@ class Board:
         return '\n'.join((str(self.theme), self.turn, str(self.last_move), b))
 
     def __str__(self) -> str:
-        skin = DISCS[self.theme]
         text = '|'.join(COLS) + '\n'
         for row in self._board:
-            text += '|'.join(skin[d] for d in row) + '\n'
+            text += '|'.join(self.get_disc(d) for d in row) + '\n'
         return text
 
     def get_disc(self, disc: str) -> str:
