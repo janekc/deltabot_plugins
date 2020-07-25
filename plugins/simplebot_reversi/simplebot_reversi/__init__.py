@@ -2,8 +2,8 @@
 import os
 
 from .database import DBManager
+from .reversi import Board, BLACK, WHITE
 from deltabot.hookspec import deltabot_hookimpl
-import simplebot_reversi.reversi as reversi
 # typing:
 from deltabot import DeltaBot
 from deltabot.bot import Replies
@@ -49,13 +49,15 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Reversi game groups
     """
+    if len(message.text) != 2 or not message.text.isalnum():
+        return
     game = db.get_game_by_gid(message.chat.id)
-    if game is None or game['board'] is None or not message.text.isalnum() or len(message.text) != 2:
+    if game is None or game['board'] is None:
         return
 
-    b = reversi.Board(game['board'])
+    b = Board(game['board'])
     player = message.get_sender_contact().addr
-    player = reversi.BLACK if game['black'] == player else reversi.WHITE
+    player = BLACK if game['black'] == player else WHITE
     if b.turn == player:
         try:
             b.move(message.text)
@@ -89,14 +91,13 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
     g = db.get_game_by_players(p1, p2)
 
     if g is None:  # first time playing with p2
-        b = reversi.DISKS[reversi.BLACK]
-        w = reversi.DISKS[reversi.WHITE]
+        b = Board()
         chat = command.bot.create_group(
-            '{} {} 🆚 {} [Reversi]'.format(b, p1, p2), [p1, p2])
-        db.add_game(p1, p2, chat.id, reversi.Board().export(), p1)
+            '🔴 {} 🆚 {} [Reversi]'.format(p1, p2), [p1, p2])
+        db.add_game(p1, p2, chat.id, b.export(), p1)
         text = 'Hello {1},\nYou have been invited by {0} to play Reversi'
         text += '\n\n{2}: {0}\n{3}: {1}\n\n'
-        text = text.format(p1, p2, b, w)
+        text = text.format(p1, p2, b.get_disk(BLACK), b.get_disk(WHITE))
         replies.add(text=text + run_turn(chat.id), chat=chat)
     else:
         text = 'You already have a game group with {}'.format(p2)
@@ -127,13 +128,11 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
     if game is None or sender not in (game['p1'], game['p2']):
         replies.add(text='This is not your game group')
     elif game['board'] is None:
-        board = reversi.Board()
-        db.set_game(game['p1'], game['p2'], board.export(), sender)
-        b = reversi.DISKS[reversi.BLACK]
-        w = reversi.DISKS[reversi.WHITE]
+        b = Board()
+        db.set_game(game['p1'], game['p2'], b.export(), sender)
         p2 = game['p2'] if sender == game['p1'] else game['p1']
         text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
-            b, sender, w, p2)
+            b.get_disk(BLACK), sender, b.get_disk(WHITE), p2)
         replies.add(text=text + run_turn(command.message.chat.id))
     else:
         replies.add(text='There is a game running already')
@@ -149,33 +148,33 @@ def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
 
 def run_turn(gid: int) -> str:
     g = db.get_game_by_gid(gid)
-    b = reversi.Board(g['board'])
+    b = Board(g['board'])
     result = b.result()
     if result['status'] in (0, 1):
         if result['status'] == 1:
-            b.turn = reversi.BLACK if b.turn == reversi.WHITE else reversi.WHITE
+            b.turn = BLACK if b.turn == WHITE else WHITE
             db.set_board(g['p1'], g['p2'], b.export())
-        if b.turn == reversi.BLACK:
-            disk = reversi.DISKS[reversi.BLACK]
+        if b.turn == BLACK:
+            disk = b.get_disk(BLACK)
             turn = '{} {}'.format(disk, g['black'])
         else:
-            disk = reversi.DISKS[reversi.WHITE]
+            disk = b.get_disk(WHITE)
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             turn = '{} {}'.format(disk, p2)
         return "{} it's your turn...\n\n{}\n\n{}".format(
             turn, b, b.get_score())
     else:
         db.set_board(g['p1'], g['p2'], None)
-        black, white = result[reversi.BLACK], result[reversi.WHITE]
+        black, white = result[BLACK], result[WHITE]
         if black == white:
             return '🤝 Game over.\nIt is a draw!\n\n{}\n\n{}'.format(
                 b, b.get_score())
         else:
             if black > white:
-                disk = reversi.DISKS[reversi.BLACK]
+                disk = b.get_disk(BLACK)
                 winner = '{} {}'.format(disk, g['black'])
             else:
-                disk = reversi.DISKS[reversi.WHITE]
+                disk = b.get_disk(WHITE)
                 p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
                 winner = '{} {}'.format(disk, p2)
             return '🏆 Game over.\n{} Wins!!!\n\n{}\n\n{}'.format(
