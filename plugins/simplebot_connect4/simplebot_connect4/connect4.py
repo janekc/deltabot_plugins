@@ -83,15 +83,17 @@ class Board:
             count = 1
             x2, y2 = x1 + xdir, y1 + ydir
             while self.is_on_board(x2, y2) and self._board[x2][y2] == winner:
+                count += 1
                 x2 += xdir
                 y2 += ydir
-                count += 1
 
-            x2, y2 = x1 + xdir * -1, y1 + ydir * -1
+            xdir *= -1
+            ydir *= -1
+            x2, y2 = x1 + xdir, y1 + ydir
             while self.is_on_board(x2, y2) and self._board[x2][y2] == winner:
+                count += 1
                 x2 += xdir
                 y2 += ydir
-                count += 1
 
             if count >= 4:
                 return winner
