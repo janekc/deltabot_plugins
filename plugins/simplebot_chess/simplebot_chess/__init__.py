@@ -100,8 +100,8 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
         b = chgame.Board(p1=p1, p2=p2, theme=int(getdefault('theme')))
         db.add_game(p1, p2, chat.id, b.export())
         text = 'Hello {1},\nYou have been invited by {0} to play Chess'
-        text += '\n\n{} White: {}\n{} Black: {}\n\n'
-        text = text.format(b.theme['P'], p1, b.theme['p'], p2)
+        text += '\n\n{2} White: {0}\n{3} Black: {1}\n\n'
+        text = text.format(p1, p2, b.theme['P'], b.theme['p'])
         text += run_turn(chat.id)
         replies.add(text=text, chat=chat)
     else:
