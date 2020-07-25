@@ -77,6 +77,7 @@ class Board:
         for x in range(self.height):
             if self._board[x][y1] != EMPTY:
                 x1 = x
+                break
 
         winner = self._board[x1][y1]
         for xdir, ydir in ((0, 1), (1, 1), (1, 0), (1, -1)):
