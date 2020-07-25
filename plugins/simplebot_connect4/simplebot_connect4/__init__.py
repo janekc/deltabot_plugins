@@ -2,7 +2,7 @@
 import os
 
 from .db import DBManager
-from .connect4 import Board, DISCS, BLACK, WHITE
+from .connect4 import Board, BLACK, WHITE
 from deltabot.hookspec import deltabot_hookimpl
 # typing:
 from deltabot import DeltaBot
@@ -97,7 +97,7 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
         text = 'Hello {1},\nYou have been invited by {0} to play Connect4'
         text += '\n\n{2}: {0}\n{3}: {1}\n\n'
         text = text.format(
-            p1, p2, DISCS[b.theme][BLACK], DISCS[b.theme][WHITE])
+            p1, p2, b.get_disc(BLACK), b.get_disc(WHITE))
         replies.add(text=text + run_turn(chat.id), chat=chat)
     else:
         text = 'You already have a game group with {}'.format(p2)
@@ -132,7 +132,7 @@ def cmd_new(command: IncomingCommand, replies: Replies) -> None:
         db.set_game(game['p1'], game['p2'], b.export(), sender)
         p2 = game['p2'] if sender == game['p1'] else game['p1']
         text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
-            DISCS[b.theme][BLACK], sender, DISCS[b.theme][WHITE], p2)
+            b.get_disc(BLACK), sender, b.get_disc(WHITE), p2)
         replies.add(text=text + run_turn(command.message.chat.id))
     else:
         replies.add(text='There is a game running already')
@@ -152,10 +152,10 @@ def run_turn(gid: int) -> str:
     result = b.result()
     if result is None:
         if b.turn == BLACK:
-            disc = DISCS[b.theme][BLACK]
+            disc = b.get_disc(BLACK)
             turn = '{} {}'.format(disc, g['black'])
         else:
-            disc = DISCS[b.theme][WHITE]
+            disc = b.get_disc(WHITE)
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             turn = '{} {}'.format(disc, p2)
         return "{} it's your turn...\n\n{}".format(turn, b)
@@ -164,10 +164,10 @@ def run_turn(gid: int) -> str:
         if result == '-':
             return '🤝 Game over.\nIt is a draw!\n\n{}'.format(b)
         if result == BLACK:
-            disc = DISCS[b.theme][BLACK]
+            disc = b.get_disc(BLACK)
             winner = '{} {}'.format(disc, g['black'])
         else:
-            disc = DISCS[b.theme][WHITE]
+            disc = b.get_disc(WHITE)
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             winner = '{} {}'.format(disc, p2)
         return '🏆 Game over.\n{} Wins!!!\n\n{}'.format(winner, b)

@@ -44,6 +44,9 @@ class Board:
             text += '|'.join(skin[d] for d in row) + '\n'
         return text
 
+    def get_disc(self, disc: str) -> str:
+        return DISCS[self.theme][disc]
+
     def is_on_board(self, x: int, y: int) -> bool:
         return 0 <= x < self.height and 0 <= y < self.width
 
