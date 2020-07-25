@@ -152,6 +152,8 @@ def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
 
 def run_turn(gid: int) -> str:
     g = db.get_game_by_gid(gid)
+    if not g['game']:
+        return 'There is no game running'
     b = chgame.Board(g['game'], theme=int(getdefault('theme')))
     result = b.result()
     if result == '*':
