@@ -70,7 +70,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
 def cmd_play(command: IncomingCommand, replies: Replies) -> None:
     """Invite a friend to play Reversi.
 
-    Example: `/play friend@example.com`
+    Example: `/reversi_play friend@example.com`
     """
     if not command.payload:
         replies.add(text="Missing address")

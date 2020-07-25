@@ -70,7 +70,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
 def cmd_play(command: IncomingCommand, replies: Replies) -> None:
     """Invite a friend to play Chess.
 
-    Example: `/play friend@example.com`
+    Example: `/chess_play friend@example.com`
     To move use Standard Algebraic Notation or Long Algebraic Notation
     (without hyphens), more info in Wikipedia.
     For example, to move pawn from e2 to e4, send a message: e4 or: e2e4,
