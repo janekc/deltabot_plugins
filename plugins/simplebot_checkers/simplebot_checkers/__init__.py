@@ -49,7 +49,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Checkers game groups
     """
-    if not message.text.isalnum() or len(message.text) != 4:
+    if len(message.text) != 4 or not message.text.isalnum() or message.text.isalpha() or message.text.isdigit():
         return
     game = db.get_game_by_gid(message.chat.id)
     if game is None or game['board'] is None:
