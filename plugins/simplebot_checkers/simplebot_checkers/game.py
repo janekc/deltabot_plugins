@@ -74,28 +74,35 @@ class Board:
 
     def get_position(self, coord: str) -> int:
         sorted_coord = sorted(coord.lower())
-        x = 'abcdefgh'.find(sorted_coord[1])
-        y = '12345678'.find(sorted_coord[0])
-        if x < 0 or y < 0 or (x + y + 1) % 2 != 0:
+        i = 'abcdefgh'.find(sorted_coord[1])
+        j = '12345678'.find(sorted_coord[0])
+        if i < 0 or j < 0 or (i + j + 1) % 2 != 0:
             return -1
 
         pos = 1
-        for i in range(8):
-            for j in range(8):
-                if (i, j) == (x, y):
+        for i2 in range(8):
+            for j2 in range(8):
+                if (i, j) == (i2, j2):
                     return pos
-                if (i + j + 1) % 2 == 0:
+                if (i2 + j2 + 1) % 2 == 0:
                     pos += 1
 
         return -1  # impossible
 
     def move(self, coords: str) -> None:
-        x = self.get_position(coords[:2])
-        y = self.get_position(coords[2:])
-        if x < 0 or y < 0:
+        if len(coords) == 2:
+            j = self.get_position(coords)
+            moves = [m[0] for m in self.game.get_possible_moves() if m[1] == j]
+            if j < 0 or len(moves) != 1:
+                raise ValueError('Invalid move')
+            i = moves[0]
+        else:
+            i = self.get_position(coords[:2])
+            j = self.get_position(coords[2:])
+        if i < 0 or j < 0:
             raise ValueError('Invalid move')
 
-        self.game.move([x, y])
+        self.game.move([i, j])
 
     def result(self) -> int:
         if not self.game.is_over():
