@@ -136,35 +136,43 @@ def check_feeds() -> None:
     while True:
         dbot.logger.debug('Checking feeds')
         for f in db.get_feeds():
-            fchats = db.get_fchats(f['url'])
-
-            if not fchats:
-                db.remove_feed(f['url'])
-                continue
-
-            d = feedparser.parse(
-                f['url'], etag=f['etag'], modified=f['modified'])
-
-            if d.get('bozo') == 1:
-                continue
-
-            if d.entries and f['latest']:
-                d.entries = get_new_entries(
-                    d.entries, tuple(map(int, f['latest'].split())))
-            if not d.entries:
-                continue
-
-            text = format_entries(d.entries[-50:])
-            for gid in fchats:
-                try:
-                    dbot.get_chat(gid).send_text(text)
-                except ValueError:
-                    db.remove_fchat(gid)
-
-            latest = get_latest_date(d.entries) or f['latest']
-            modified = d.get('modified') or d.get('updated')
-            db.update_feed(f['url'], d.get('etag'), modified, latest)
+            try:
+                _check_feed(f)
+            except Exception as err:
+                dbot.logger.exception(err)
         sleep(int(getdefault('delay')))
+
+
+def _check_feed(f) -> None:
+    fchats = db.get_fchats(f['url'])
+
+    if not fchats:
+        db.remove_feed(f['url'])
+        return
+
+    dbot.logger.debug('Checking feed: %s', f['url'])
+    d = feedparser.parse(
+        f['url'], etag=f['etag'], modified=f['modified'])
+
+    if d.get('bozo') == 1:
+        return
+
+    if d.entries and f['latest']:
+        d.entries = get_new_entries(
+            d.entries, tuple(map(int, f['latest'].split())))
+    if not d.entries:
+        return
+
+    text = format_entries(d.entries[-50:])
+    for gid in fchats:
+        try:
+            dbot.get_chat(gid).send_text(text)
+        except ValueError:
+            db.remove_fchat(gid)
+
+    latest = get_latest_date(d.entries) or f['latest']
+    modified = d.get('modified') or d.get('updated')
+    db.update_feed(f['url'], d.get('etag'), modified, latest)
 
 
 def format_entries(entries: list) -> str:
