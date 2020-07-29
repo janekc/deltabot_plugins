@@ -16,8 +16,10 @@ Bridges
 Games
 ~~~~~
 
-- **Chess:** Chess game to play online with friends.  
-- **Reversi:** Reversi/Othello game to play online with friends.
+- **Checkers:** American Checkers game to play with friends.
+- **Chess:** Chess game to play with friends.
+- **Connect Four:** Connect Four game to play with friends.
+- **Reversi:** Reversi/Othello game to play with friends.
 
 
 Misc
