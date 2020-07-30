@@ -33,6 +33,7 @@ MASTODON_LOGO = os.path.join(
 v2emoji = {Visibility.DIRECT: '✉', Visibility.PRIVATE: '🔒',
            Visibility.UNLISTED: '🔓', Visibility.PUBLIC: '🌎'}
 TOOT_SEP = '\n\n―――――――――――――――\n\n'
+STRFORMAT = '%Y-%m-%d %H:%M'
 dbot: DeltaBot
 db: DBManager
 
@@ -50,20 +51,27 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    dbot.commands.register('/masto_login', cmd_login)
-    dbot.commands.register('/masto_logout', cmd_logout)
-    dbot.commands.register('/masto_account', cmd_account)
-    dbot.commands.register('/masto_dm', cmd_dm)
-    dbot.commands.register('/masto_reply', cmd_reply)
-    dbot.commands.register('/masto_star', cmd_star)
-    dbot.commands.register('/masto_boost', cmd_boost)
-    dbot.commands.register('/masto_context', cmd_context)
-    dbot.commands.register('/masto_follow', cmd_follow)
-    dbot.commands.register('/masto_unfollow', cmd_unfollow)
-    dbot.commands.register('/masto_whois', cmd_whois)
-    dbot.commands.register('/masto_local', cmd_local)
-    dbot.commands.register('/masto_public', cmd_public)
-    dbot.commands.register('/masto_tag', cmd_tag)
+    dbot.commands.register('/m_login', cmd_login)
+    dbot.commands.register('/m_logout', cmd_logout)
+    dbot.commands.register('/m_accounts', cmd_accounts)
+    dbot.commands.register('/m_bio', cmd_bio)
+    dbot.commands.register('/m_avatar', cmd_avatar)
+    dbot.commands.register('/m_dm', cmd_dm)
+    dbot.commands.register('/m_reply', cmd_reply)
+    dbot.commands.register('/m_star', cmd_star)
+    dbot.commands.register('/m_boost', cmd_boost)
+    dbot.commands.register('/m_cntx', cmd_cntx)
+    dbot.commands.register('/m_follow', cmd_follow)
+    dbot.commands.register('/m_unfollow', cmd_unfollow)
+    dbot.commands.register('/m_mute', cmd_mute)
+    dbot.commands.register('/m_unmute', cmd_unmute)
+    dbot.commands.register('/m_block', cmd_block)
+    dbot.commands.register('/m_unblock', cmd_unblock)
+    dbot.commands.register('/m_profile', cmd_profile)
+    dbot.commands.register('/m_local', cmd_local)
+    dbot.commands.register('/m_public', cmd_public)
+    dbot.commands.register('/m_tag', cmd_tag)
+    dbot.commands.register('/m_search', cmd_search)
 
 
 @deltabot_hookimpl
@@ -75,13 +83,14 @@ def deltabot_start(bot: DeltaBot) -> None:
 
 
 @deltabot_hookimpl
-def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
+def deltabot_member_removed(chat: Chat, contact: Contact,
+                            replies: Replies) -> None:
     me = dbot.self_contact
     if me == contact or len(chat.get_contacts()) <= 1:
         acc = db.get_account(chat.id)
         if acc:
-            if chat.id in (acc['toots'], acc['notif']):
-                db.remove_account(acc['id'])
+            if chat.id in (acc['home'], acc['notif']):
+                logout(acc, replies)
             else:
                 db.remove_pchat(chat.id)
 
@@ -100,13 +109,14 @@ def filter_messages(message: Message, replies: Replies) -> None:
     if pchat:
         acc = db.get_account_by_id(pchat['account'])
         text = '@{} {}'.format(pchat['contact'], message.text)
-        toot(get_session(acc), text, visibility=Visibility.DIRECT)
+        toot(get_session(acc), text, message.filename,
+             visibility=Visibility.DIRECT)
 
 
 # ======== Commands ===============
 
 def cmd_login(command: IncomingCommand, replies: Replies) -> None:
-    """Login on Mastodon. Example: /masto_login mastodon.social me@example.com myPassw0rd
+    """Login on Mastodon. Example: /m_login mastodon.social me@example.com myPassw0rd
     """
     api_url, email, passwd = command.payload.split(maxsplit=2)
     api_url = normalize_url(api_url)
@@ -163,17 +173,19 @@ def cmd_logout(command: IncomingCommand, replies: Replies) -> None:
             return
     else:
         acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
 
     if acc:
-        db.remove_account(acc['id'])
-        chat = command.bot.get_chat(command.message.get_sender_contact())
-        replies.add(
-            text='You have logged out from: '+acc['api_url'], chat=chat)
+        logout(acc, replies)
     else:
         replies.add(text='Unknow account')
 
 
-def cmd_account(command: IncomingCommand, replies: Replies) -> None:
+def cmd_accounts(command: IncomingCommand, replies: Replies) -> None:
     """Show your Mastodon accounts.
     """
     accs = db.get_accounts(addr=command.message.get_sender_contact().addr)
@@ -183,9 +195,60 @@ def cmd_account(command: IncomingCommand, replies: Replies) -> None:
     text = ''
     for acc in accs:
         url = rmprefix(acc['api_url'], 'https://')
-        text += '{}@{}: /masto_logout_{}\n\n'.format(
+        text += '{}@{}: /m_logout_{}\n\n'.format(
             acc['accname'], url, acc['id'])
     replies.add(text=text)
+
+
+def cmd_bio(command: IncomingCommand, replies: Replies) -> None:
+    """Update your Mastodon biography.
+    """
+    acc = db.get_account(command.message.chat.id)
+    if not acc:
+        accs = db.get_accounts(
+            addr=command.message.get_sender_contact().addr)
+        if len(accs) == 1:
+            acc = accs[0]
+    if not acc:
+        replies.add(
+            text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='You must provide a biography')
+        return
+
+    m = get_session(acc)
+    try:
+        m.account_update_credentials(note=command.payload)
+        replies.add(text='Biography updated')
+    except mastodon.MastodonAPIError as err:
+        replies.add(text=err.args[-1])
+
+
+def cmd_avatar(command: IncomingCommand, replies: Replies) -> None:
+    """Update your Mastodon avatar.
+    """
+    acc = db.get_account(command.message.chat.id)
+    if not acc:
+        accs = db.get_accounts(
+            addr=command.message.get_sender_contact().addr)
+        if len(accs) == 1:
+            acc = accs[0]
+    if not acc:
+        replies.add(
+            text='You must send that command in you Mastodon chats')
+        return
+    if not command.message.filename:
+        replies.add(
+            text='You must send an avatar attached to your messagee')
+        return
+
+    m = get_session(acc)
+    try:
+        m.account_update_credentials(avatar=command.message.filename)
+        replies.add(text='Avatar updated')
+    except mastodon.MastodonAPIError:
+        replies.add(text='Failed to update avatar')
 
 
 def cmd_dm(command: IncomingCommand, replies: Replies) -> None:
@@ -199,38 +262,41 @@ def cmd_dm(command: IncomingCommand, replies: Replies) -> None:
         command.payload = command.args[1]
     else:
         acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
+    if not acc:
+        replies.add(
+            text='You must send that command in you Mastodon chats')
+        return
     if not command.payload:
         replies.add(text='Wrong Syntax')
         return
-    if not acc:
-        replies.add(text='You must send that command in you Mastodon chats')
+
+    user = get_user(get_session(acc), command.payload)
+    if not user:
+        replies.add(text='Account not found: ' + command.payload)
         return
 
-    command.payload = command.payload.lstrip('@').lower()
-
-    pv = db.get_pchat_by_contact(acc['id'], command.payload)
+    pv = db.get_pchat_by_contact(acc['id'], user.acct)
     if pv:
         chat = command.bot.get_chat(pv['id'])
         replies.add(
             text='Chat already exists, send messages here', chat=chat)
     else:
-        m = get_session(acc)
-        contact = m.account_search(command.payload, limit=1)
-        accnames = (command.payload, command.payload.split('@')[0])
-        if contact and contact[0].acct.lower() in accnames:
-            title = '🇲 {} ({})'.format(
-                command.payload, rmprefix(acc['api_url'], 'https://'))
-            g = command.bot.create_group(title, [acc['addr']])
-            db.add_pchat(g.id, command.payload, acc['id'])
+        title = '🇲 {} ({})'.format(
+            user.acct, rmprefix(acc['api_url'], 'https://'))
+        g = command.bot.create_group(title, [acc['addr']])
+        db.add_pchat(g.id, command.payload, acc['id'])
 
-            r = requests.get(contact[0].avatar_static)
-            with tempfile.NamedTemporaryFile(suffix='.jpg') as fp:
-                fp.write(r.content)
-                g.set_profile_image(fp.name)
-            replies.add(
-                text='Private chat with: ' + command.payload, chat=g)
-        else:
-            replies.add(text='Account not found: ' + command.payload)
+        r = requests.get(user.avatar_static)
+        with tempfile.NamedTemporaryFile(suffix='.jpg') as fp:
+            fp.write(r.content)
+            g.set_profile_image(fp.name)
+        replies.add(
+            text='Private chat with: ' + user.acct, chat=g)
 
 
 def cmd_reply(command: IncomingCommand, replies: Replies) -> None:
@@ -244,7 +310,7 @@ def cmd_reply(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='Invalid toot or account id')
         return
 
-    toot(acc, text=text, in_reply_to=toot_id)
+    toot(get_session(acc), text=text, in_reply_to=toot_id)
 
 
 def cmd_star(command: IncomingCommand, replies: Replies) -> None:
@@ -277,7 +343,7 @@ def cmd_boost(command: IncomingCommand, replies: Replies) -> None:
     m.status_reblog(toot_id)
 
 
-def cmd_context(command: IncomingCommand, replies: Replies) -> None:
+def cmd_cntx(command: IncomingCommand, replies: Replies) -> None:
     """Get the context of the toot with the given id.
     """
     acc_id, toot_id = command.args
@@ -308,12 +374,17 @@ def cmd_follow(command: IncomingCommand, replies: Replies) -> None:
         command.payload = command.args[1]
     else:
         acc = db.get_account(command.message.chat.id)
-    if not command.payload:
-        replies.add(text='Wrong Syntax')
-        return
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
     if not acc:
         replies.add(
             text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='Wrong Syntax')
         return
 
     m = get_session(acc)
@@ -339,12 +410,17 @@ def cmd_unfollow(command: IncomingCommand, replies: Replies) -> None:
         command.payload = command.args[1]
     else:
         acc = db.get_account(command.message.chat.id)
-    if not command.payload:
-        replies.add(text='Wrong Syntax')
-        return
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
     if not acc:
         replies.add(
             text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='Wrong Syntax')
         return
 
     m = get_session(acc)
@@ -359,7 +435,151 @@ def cmd_unfollow(command: IncomingCommand, replies: Replies) -> None:
     replies.add(text='User unfollowed')
 
 
-def cmd_whois(command: IncomingCommand, replies: Replies) -> None:
+def cmd_mute(command: IncomingCommand, replies: Replies) -> None:
+    """Mute the user with the given id.
+    """
+    if len(command.args) == 2:
+        acc = db.get_account_by_id(int(command.args[0]))
+        if acc and acc['addr'] != command.message.get_sender_contact().addr:
+            replies.add(text='That is not your account')
+            return
+        command.payload = command.args[1]
+    else:
+        acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
+    if not acc:
+        replies.add(
+            text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='Wrong Syntax')
+        return
+
+    m = get_session(acc)
+    if command.payload.isdigit():
+        user_id = command.payload
+    else:
+        user_id = get_user(m, command.payload)
+        if user_id is None:
+            replies.add(text='Invalid user')
+            return
+    m.account_mute(user_id)
+    replies.add(text='User muted')
+
+
+def cmd_unmute(command: IncomingCommand, replies: Replies) -> None:
+    """Unmute the user with the given id.
+    """
+    if len(command.args) == 2:
+        acc = db.get_account_by_id(int(command.args[0]))
+        if acc and acc['addr'] != command.message.get_sender_contact().addr:
+            replies.add(text='That is not your account')
+            return
+        command.payload = command.args[1]
+    else:
+        acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
+    if not acc:
+        replies.add(
+            text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='Wrong Syntax')
+        return
+
+    m = get_session(acc)
+    if command.payload.isdigit():
+        user_id = command.payload
+    else:
+        user_id = get_user(m, command.payload)
+        if user_id is None:
+            replies.add(text='Invalid user')
+            return
+    m.account_unmute(user_id)
+    replies.add(text='User unmuted')
+
+
+def cmd_block(command: IncomingCommand, replies: Replies) -> None:
+    """Block the user with the given id.
+    """
+    if len(command.args) == 2:
+        acc = db.get_account_by_id(int(command.args[0]))
+        if acc and acc['addr'] != command.message.get_sender_contact().addr:
+            replies.add(text='That is not your account')
+            return
+        command.payload = command.args[1]
+    else:
+        acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
+    if not acc:
+        replies.add(
+            text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='Wrong Syntax')
+        return
+
+    m = get_session(acc)
+    if command.payload.isdigit():
+        user_id = command.payload
+    else:
+        user_id = get_user(m, command.payload)
+        if user_id is None:
+            replies.add(text='Invalid user')
+            return
+    m.account_block(user_id)
+    replies.add(text='User blocked')
+
+
+def cmd_unblock(command: IncomingCommand, replies: Replies) -> None:
+    """Unblock the user with the given id.
+    """
+    if len(command.args) == 2:
+        acc = db.get_account_by_id(int(command.args[0]))
+        if acc and acc['addr'] != command.message.get_sender_contact().addr:
+            replies.add(text='That is not your account')
+            return
+        command.payload = command.args[1]
+    else:
+        acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
+    if not acc:
+        replies.add(
+            text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='Wrong Syntax')
+        return
+
+    m = get_session(acc)
+    if command.payload.isdigit():
+        user_id = command.payload
+    else:
+        user_id = get_user(m, command.payload)
+        if user_id is None:
+            replies.add(text='Invalid user')
+            return
+    m.account_unblock(user_id)
+    replies.add(text='User unblocked')
+
+
+def cmd_profile(command: IncomingCommand, replies: Replies) -> None:
     """See the profile of the given user.
     """
     if len(command.args) == 2:
@@ -370,30 +590,55 @@ def cmd_whois(command: IncomingCommand, replies: Replies) -> None:
         command.payload = command.args[1]
     else:
         acc = db.get_account(command.message.chat.id)
-    if not command.payload:
-        replies.add(text='Wrong Syntax')
-        return
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
     if not acc:
         replies.add(
             text='You must send that command in you Mastodon chats')
         return
 
     m = get_session(acc)
-    user = get_user(m, command.payload)
-    if user is None:
-        replies.add(text='Invalid user')
-        return
+    me = m.me()
+    if not command.payload:
+        user = me
+    else:
+        user = get_user(m, command.payload)
+        if user is None:
+            replies.add(text='Invalid user')
+            return
 
-    toots = m.account_statuses(user.id)
-    text = '{} (@{}):\n\n'.format(user.display_name, user.acct)
+    rel = m.account_relationships(user)[0] if user.id != me.id else None
+    text = '{}:\n\n'.format(get_name(user))
     fields = ''
     for f in user.fields:
-        fields += '{}: {}\n'.format(html2text(f.name), html2text(f.value))
+        fields += '{}: {}\n'.format(
+            html2text(f.name).strip(), html2text(f.value).strip())
     if fields:
         text += fields+'\n\n'
-    text += html2text(user.note)
-    text += '\n\nToots: {}\nFollowing: {}\nFollowers: {}\n\n'.format(
+    text += html2text(user.note).strip()
+    text += '\n\nToots: {}\nFollowing: {}\nFollowers: {}'.format(
         user.statuses_count, user.following_count, user.followers_count)
+    if user.id != me.id:
+        if rel['followed_by']:
+            text += '\n[follows you]'
+        elif rel['blocked_by']:
+            text += '\n[blocked you]'
+        text += '\n'
+        if rel['following'] or rel['requested']:
+            action = 'unfollow'
+        else:
+            action = 'follow'
+        text += '\n/m_{}_{}_{}'.format(action, acc['id'], user.id)
+        action = 'unmute' if rel['muting'] else 'mute'
+        text += '\n/m_{}_{}_{}'.format(action, acc['id'], user.id)
+        action = 'unblock' if rel['blocking'] else 'block'
+        text += '\n/m_{}_{}_{}'.format(action, acc['id'], user.id)
+        text += '\n/m_dm_{}_{}'.format(acc['id'], user.id)
+    text += TOOT_SEP
+    toots = m.account_statuses(user, limit=10)
     text += TOOT_SEP.join(toots2text(toots, acc['id']))
     replies.add(text=text)
 
@@ -408,6 +653,11 @@ def cmd_local(command: IncomingCommand, replies: Replies) -> None:
             return
     else:
         acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
     if not acc:
         replies.add(
             text='You must send that command in you Mastodon chats')
@@ -431,6 +681,11 @@ def cmd_public(command: IncomingCommand, replies: Replies) -> None:
             return
     else:
         acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
     if not acc:
         replies.add(
             text='You must send that command in you Mastodon chats')
@@ -445,7 +700,7 @@ def cmd_public(command: IncomingCommand, replies: Replies) -> None:
 
 
 def cmd_tag(command: IncomingCommand, replies: Replies) -> None:
-    """Get latest entries with the given tag.
+    """Get latest entries with the given hashtags.
     """
     if len(command.args) == 2:
         acc = db.get_account_by_id(int(command.args[0]))
@@ -455,19 +710,67 @@ def cmd_tag(command: IncomingCommand, replies: Replies) -> None:
         command.payload = command.args[1]
     else:
         acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
     command.payload = command.payload.lstrip('#')
-    if not command.payload:
-        replies.add(text='Wrong Syntax')
-        return
     if not acc:
         replies.add(
             text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='Wrong Syntax')
         return
 
     m = get_session(acc)
     toots = m.timeline_hashtag(command.payload)
     if toots:
         replies.add(text=TOOT_SEP.join(toots2text(toots, acc['id'])))
+    else:
+        replies.add(text='Nothing found')
+
+
+def cmd_search(command: IncomingCommand, replies: Replies) -> None:
+    """Search for users and hashtags matching the given text.
+    """
+    if len(command.args) == 2:
+        acc = db.get_account_by_id(int(command.args[0]))
+        if acc and acc['addr'] != command.message.get_sender_contact().addr:
+            replies.add(text='That is not your account')
+            return
+        command.payload = command.args[1]
+    else:
+        acc = db.get_account(command.message.chat.id)
+        if not acc:
+            accs = db.get_accounts(
+                addr=command.message.get_sender_contact().addr)
+            if len(accs) == 1:
+                acc = accs[0]
+    if not acc:
+        replies.add(
+            text='You must send that command in you Mastodon chats')
+        return
+    if not command.payload:
+        replies.add(text='Wrong Syntax')
+        return
+
+    m = get_session(acc)
+    res = m.search(command.payload)
+    text = ''
+    if res['accounts']:
+        text += '👤 Accounts:'
+        for a in res['accounts']:
+            text += '\n@{} /m_profile_{}_{}'.format(
+                a.acct, acc['id'], a.id)
+        text += '\n\n'
+    if res['hashtags']:
+        text += '#️⃣ Hashtags:'
+        for tag in res['hashtags']:
+            text += '\n#{0} /m_tag_{1}_{0}'.format(tag.name, acc['id'])
+    if text:
+        replies.add(text=text)
     else:
         replies.add(text='Nothing found')
 
@@ -495,31 +798,41 @@ def get_user(m, user_id):
     return user
 
 
+def get_name(macc) -> str:
+    isbot = '[BOT] ' if macc.bot else ''
+    if macc.display_name:
+        return isbot + '{} (@{})'.format(macc.display_name, macc.acct)
+    return isbot + macc.acct
+
+
 def toots2text(toots: list, acc_id: int,
                notifications: bool = False) -> Generator:
     for t in reversed(toots):
         if notifications:
+            is_mention = False
+            timestamp = t.created_at.strftime(STRFORMAT)
             if t.type == 'reblog':
-                text = '🔁 {} (@{}) boosted your toot:\n\n'.format(
-                    t.account.display_name, t.account.acct)
+                text = '🔁 {} boosted your toot. ({})\n\n'.format(
+                    get_name(t.account), timestamp)
             elif t.type == 'favourite':
-                text = '⭐ {} (@{}) favorited your toot:\n\n'.format(
-                    t.account.display_name, t.account.acct)
+                text = '⭐ {} favorited your toot. ({})\n\n'.format(
+                    get_name(t.account), timestamp)
             elif t.type == 'follow':
-                yield '👤 {} (@{}) followed you.'.format(
-                    t.account.display_name, t.account.acct)
+                yield '👤 {} followed you. ({})'.format(
+                    get_name(t.account), timestamp)
                 continue
-            elif t.type != 'mention':
+            elif t.type == 'mention':
+                is_mention = True
+                text = '{}:\n\n'.format(get_name(t.account))
+            else:
                 continue
-            is_mention = t.type == 'mention'
             t = t.status
         elif t.reblog:
-            a = t.reblog.account
-            text = '{} (@{}):\n🔁 {} (@{})\n\n'.format(
-                a.display_name, a.acct, t.account.display_name, t.account.acct)
+            text = '{}:\n🔁 {}\n\n'.format(
+                get_name(t.reblog.account), get_name(t.account))
+            t = t.reblog
         else:
-            text = '{} (@{}):\n\n'.format(
-                t.account.display_name, t.account.acct)
+            text = '{}:\n\n'.format(get_name(t.account))
 
         media_urls = '\n'.join(
             media.url for media in t.media_attachments)
@@ -541,13 +854,14 @@ def toots2text(toots: list, acc_id: int,
             p.replace_with(p.get_text()+'\n\n')
         text += soup.get_text()
 
-        text += '\n\nStatus: {}\n'.format(v2emoji[t.visibility])
+        text += '\n\n[{} {}]\n'.format(
+            v2emoji[t.visibility], t.created_at.strftime(STRFORMAT))
         if not notifications or is_mention:
-            text += '↩️ /masto_reply_{}_{}\n'.format(acc_id, t.id)
-            text += '⭐ /masto_star_{}_{}\n'.format(acc_id, t.id)
-            if t.visibility == Visibility.PUBLIC:
-                text += '🔄 /masto_boost_{}_{}\n'.format(acc_id, t.id)
-            text += '⏫ /masto_context_{}_{}\n'.format(acc_id, t.id)
+            text += '↩️ /m_reply_{}_{}\n'.format(acc_id, t.id)
+            text += '⭐ /m_star_{}_{}\n'.format(acc_id, t.id)
+            if t.visibility in (Visibility.PUBLIC, Visibility.UNLISTED):
+                text += '🔄 /m_boost_{}_{}\n'.format(acc_id, t.id)
+            text += '⏫ /m_cntx_{}_{}\n'.format(acc_id, t.id)
 
         yield text
 
@@ -601,26 +915,46 @@ def rmprefix(text, prefix):
     return text[text.startswith(prefix) and len(prefix):]
 
 
+def logout(acc, replies: Replies) -> None:
+    me = dbot.self_contact
+    for pchat in db.get_pchats(acc['id']):
+        g = dbot.get_chat(pchat['id'])
+        try:
+            g.remove_contact(me)
+        except ValueError:
+            pass
+    try:
+        dbot.get_chat(acc['home']).remove_contact(me)
+    except ValueError:
+        pass
+    try:
+        dbot.get_chat(acc['notif']).remove_contact(me)
+    except ValueError:
+        pass
+    db.remove_account(acc['id'])
+    replies.add(text='You have logged out from: ' + acc['api_url'],
+                chat=dbot.get_chat(acc['addr']))
+
+
 def _check_notifications(acc, m: mastodon.Mastodon) -> None:
     max_id = None
     dmsgs = []
-    mentions = []
+    notifications = []
     while True:
-        ment = m.notifications(
+        ns = m.notifications(
             max_id=max_id, since_id=acc['last_notif'])
-        if not ment:
+        if not ns:
             break
         if max_id is None:
-            db.set_last_notif(acc['id'], ment[0].id)
-        max_id = ment[-1]
-        for mention in ment:
-            if mention.type == 'mention' and mention.status.visibility == Visibility.DIRECT and len(mention.status.mentions) == 1:
-                dmsgs.append(mention.status)
-            mentions.append(mention)
+            db.set_last_notif(acc['id'], ns[0].id)
+        max_id = ns[-1]
+        for n in ns:
+            if n.type == 'mention' and n.status.visibility == Visibility.DIRECT and len(n.status.mentions) == 1:
+                dmsgs.append(n.status)
+            else:
+                notifications.append(n)
     for dm in reversed(dmsgs):
-        acct = dm.account.acct
-        text = '{} (@{}):\n\n'.format(
-            dm.account.display_name, acct)
+        text = '{}:\n\n'.format(get_name(dm.account))
 
         media_urls = '\n'.join(
             media.url for media in dm.media_attachments)
@@ -639,10 +973,12 @@ def _check_notifications(acc, m: mastodon.Mastodon) -> None:
         for p in soup('p'):
             p.replace_with(p.get_text()+'\n\n')
         text += soup.get_text()
-        text += '\n\n⭐ /masto_star_{}_{}\n'.format(
+        text += '\n\n[{} {}]\n'.format(
+            v2emoji[dm.visibility], dm.created_at.strftime(STRFORMAT))
+        text += '⭐ /m_star_{}_{}\n'.format(
             acc['id'], dm.id)
 
-        pv = db.get_pchat_by_contact(acc['id'], acct)
+        pv = db.get_pchat_by_contact(acc['id'], dm.account.acct)
         if pv:
             g = dbot.get_chat(pv['id'])
             if g is None:
@@ -652,8 +988,8 @@ def _check_notifications(acc, m: mastodon.Mastodon) -> None:
         else:
             url = rmprefix(acc['api_url'], 'https://')
             g = dbot.create_group(
-                '🇲 {} ({})'.format(acct, url), [acc['addr']])
-            db.add_pchat(g.id, acct, acc['id'])
+                '🇲 {} ({})'.format(dm.account.acct, url), [acc['addr']])
+            db.add_pchat(g.id, dm.account.acct, acc['id'])
 
             r = requests.get(dm.account.avatar_static)
             with tempfile.NamedTemporaryFile(suffix='.jpg') as fp:
@@ -662,22 +998,34 @@ def _check_notifications(acc, m: mastodon.Mastodon) -> None:
 
             g.send_text(text)
 
-    if mentions:
+    dbot.logger.debug('Notifications: %s new entries (last id: %s)',
+                      len(notifications), acc['last_notif'])
+    if notifications:
         dbot.get_chat(acc['notif']).send_text(TOOT_SEP.join(
-            toots2text(mentions, acc['id'], True)))
+            toots2text(notifications, acc['id'], True)))
 
 
 def _check_home(acc, m: mastodon.Mastodon) -> None:
+    me = m.me()
     max_id = None
     toots: list = []
     while True:
         ts = m.timeline_home(max_id=max_id, since_id=acc['last_home'])
-        if not toots:
+        if not ts:
             break
         if max_id is None:
             db.set_last_home(acc['id'], ts[0].id)
         max_id = ts[-1]
-        toots.extend(ts)
+        for t in ts:
+            if t.account.id == me.id:
+                continue
+            for a in t.mentions:
+                if a.id == me:
+                    break
+            else:
+                toots.append(t)
+    dbot.logger.debug('Home: %s new entries (last id: %s)',
+                      len(toots), acc['last_home'])
     if toots:
         dbot.get_chat(acc['home']).send_text(TOOT_SEP.join(
             toots2text(toots, acc['id'])))
@@ -686,16 +1034,24 @@ def _check_home(acc, m: mastodon.Mastodon) -> None:
 def listen_to_mastodon() -> None:
     while True:
         dbot.logger.info('Checking Mastodon')
+        instances: dict = {}
         for acc in db.get_accounts():
-            try:
-                m = get_session(acc)
-                _check_notifications(acc, m)
-                _check_home(acc, m)
-            except mastodon.MastodonUnauthorizedError:
-                db.remove_account(acc['id'])
-                dbot.get_chat(acc['addr']).send_text(
-                    'You have logged out from: ' + acc['api_url'])
-            except Exception as ex:
-                dbot.logger.exception(ex)
-            time.sleep(0.5)
+            instances.setdefault(acc['api_url'], []).append(acc)
+        while instances:
+            for key in list(instances.keys()):
+                if not instances[key]:
+                    instances.pop(key)
+                    continue
+                acc = instances[key].pop()
+                try:
+                    m = get_session(acc)
+                    _check_notifications(acc, m)
+                    _check_home(acc, m)
+                except mastodon.MastodonUnauthorizedError:
+                    db.remove_account(acc['id'])
+                    dbot.get_chat(acc['addr']).send_text(
+                        'You have logged out from: ' + acc['api_url'])
+                except Exception as ex:
+                    dbot.logger.exception(ex)
+            time.sleep(2)
         time.sleep(int(getdefault('delay')))

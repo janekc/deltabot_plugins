@@ -111,6 +111,10 @@ class DBManager:
         return self.db.execute(
             'SELECT * FROM pchats WHERE id=?', (gid,)).fetchone()
 
+    def get_pchats(self, id: int) -> List[sqlite3.Row]:
+        return self.db.execute(
+            'SELECT * FROM pchats WHERE account=?', (id,)).fetchall()
+
     def get_pchat_by_contact(self, id: int,
                              contact: str) -> Optional[sqlite3.Row]:
         q = 'SELECT * FROM pchats WHERE account=? AND contact=?'
