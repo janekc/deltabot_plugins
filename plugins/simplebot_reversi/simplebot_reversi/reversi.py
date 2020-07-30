@@ -36,7 +36,7 @@ class Board:
 
     def export(self) -> str:
         b = '\n'.join(''.join(ln) for ln in self._board)
-        return '\n'.join((self.turn, b))
+        return '\n'.join((self.turn, str(self.theme), b))
 
     def __str__(self) -> str:
         board = [[e for e in row] for row in self._board]
