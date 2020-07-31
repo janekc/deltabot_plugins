@@ -294,7 +294,10 @@ def cmd_dm(command: IncomingCommand, replies: Replies) -> None:
         r = requests.get(user.avatar_static)
         with tempfile.NamedTemporaryFile(suffix='.jpg') as fp:
             fp.write(r.content)
-            g.set_profile_image(fp.name)
+            try:
+                g.set_profile_image(fp.name)
+            except ValueError as err:
+                command.bot.logger.exception(err)
         replies.add(
             text='Private chat with: ' + user.acct, chat=g)
 
@@ -994,7 +997,10 @@ def _check_notifications(acc, m: mastodon.Mastodon) -> None:
             r = requests.get(dm.account.avatar_static)
             with tempfile.NamedTemporaryFile(suffix='.jpg') as fp:
                 fp.write(r.content)
-                g.set_profile_image(fp.name)
+                try:
+                    g.set_profile_image(fp.name)
+                except ValueError as err:
+                    dbot.logger.exception(err)
 
             g.send_text(text)
 
@@ -1020,7 +1026,7 @@ def _check_home(acc, m: mastodon.Mastodon) -> None:
             if t.account.id == me.id:
                 continue
             for a in t.mentions:
-                if a.id == me:
+                if a.id == me.id:
                     break
             else:
                 toots.append(t)
