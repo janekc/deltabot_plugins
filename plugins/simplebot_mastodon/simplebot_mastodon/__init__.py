@@ -271,6 +271,7 @@ def cmd_dm(command: IncomingCommand, replies: Replies) -> None:
         replies.add(
             text='You must send that command in you Mastodon chats')
         return
+    command.payload = command.payload.lstrip('@').lower()
     if not command.payload:
         replies.add(text='Wrong Syntax')
         return
@@ -306,6 +307,10 @@ def cmd_reply(command: IncomingCommand, replies: Replies) -> None:
     """Reply to a toot with the given id.
     """
     acc_id, toot_id, text = command.payload.split(maxsplit=2)
+    if not text:
+        replies.add(text='Wrong Syntax')
+        return
+
     addr = command.message.get_sender_contact().addr
 
     acc = db.get_account_by_id(acc_id)
