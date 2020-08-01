@@ -164,8 +164,8 @@ def cmd_status(command: IncomingCommand, replies: Replies) -> None:
         poll = db.get_poll_by_id(pid)
         if poll:
             is_admin = addr == poll['addr']
-            voted = db.get_vote(poll['id'], addr) is not None
-            if is_admin or voted:
+            voted = is_admin or db.get_vote(poll['id'], addr) is not None
+            if voted:
                 closed = poll['status'] == Status.CLOSED
                 replies.add(text=format_poll(
                     poll, voted=voted, closed=closed, is_admin=is_admin))
