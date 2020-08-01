@@ -29,9 +29,10 @@ Misc
 - **DeltaFriends:** Provides a directory for users to share their address and biography.
 - **Echo:** Simple plugin to echo back text.
 - **Groups:** Extends the capabilities of Delta Chat groups, adding "mega groups", "channels", and allowing to have public groups, invite friends to join a group, set group topic, etc.
+- **Feeds:** Subscribe to RSS and Atom links.
 - **Memes ES:** Get Spanish memes.
 - **Memes EN:** Get English memes.
-- **Feeds:** Subscribe to RSS and Atom links.
+- **Polls:** Create polls in Delta Chat.
 - **Translator:** Allows to translate text. Example: /tr en es hello world.
 - **WebGrabber:** Browse the web using Delta Chat.
 - **Wikiquote:** Get quotes from Wikiquote.
