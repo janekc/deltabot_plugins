@@ -24,11 +24,11 @@ class DBManager:
     def close(self) -> None:
         self.db.close()
 
-    def get_game_by_gid(self, gid: int):
+    def get_game_by_gid(self, gid: int) -> Optional[sqlite3.Row]:
         return self.execute(
             'SELECT * FROM games WHERE gid=?', (gid,)).fetchone()
 
-    def get_game_by_players(self, p1: str, p2: str):
+    def get_game_by_players(self, p1: str, p2: str) -> Optional[sqlite3.Row]:
         p1, p2 = sorted([p1, p2])
         return self.db.execute(
             'SELECT * FROM games WHERE p1=? AND p2=?',

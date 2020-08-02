@@ -148,6 +148,8 @@ def cmd_repeat(command: IncomingCommand, replies: Replies) -> None:
 
 def run_turn(gid: int) -> str:
     g = db.get_game_by_gid(gid)
+    if not g:
+        return 'This is not your game group'
     if not g['board']:
         return 'There is no game running'
     b = Board(g['board'])
