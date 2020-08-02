@@ -16,6 +16,7 @@ Bridges
 Games
 ~~~~~
 
+- **Chain Reaction:** Chain Reaction board game to play with friends.
 - **Checkers:** American Checkers game to play with friends.
 - **Chess:** Chess game to play with friends.
 - **Connect Four:** Connect Four game to play with friends.
