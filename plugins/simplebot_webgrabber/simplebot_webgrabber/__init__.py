@@ -24,6 +24,7 @@ ua = 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:60.0) Gecko/20100101'
 ua += ' Firefox/60.0'
 HEADERS = {'user-agent': ua}
 dbot: DeltaBot
+img_providers: list
 
 
 class FileTooBig(ValueError):
@@ -34,8 +35,9 @@ class FileTooBig(ValueError):
 
 @deltabot_hookimpl
 def deltabot_init(bot: DeltaBot) -> None:
-    global dbot
+    global dbot, img_providers
     dbot = bot
+    img_providers = [_dogpile_imgs, _startpage_imgs, _google_imgs]
 
     getdefault('max_size', 1024*1024*5)
 
@@ -204,6 +206,62 @@ def download_images(query: str, img_count: int) -> list:
 
 
 def get_images(query: str) -> list:
+    for provider in img_providers.copy():
+        try:
+            dbot.logger.debug('Trying %s', provider)
+            imgs = provider(query)
+            if imgs:
+                return imgs
+        except Exception as err:
+            img_providers.remove(provider)
+            img_providers.append(provider)
+            dbot.logger.exception(err)
+    return []
+
+
+def _google_imgs(query: str) -> list:
+    url = 'https://www.google.com/search?tbm=isch&sout=1&q={}'.format(
+        quote_plus(query))
+    with requests.get(url) as r:
+        r.raise_for_status()
+        soup = bs4.BeautifulSoup(r.text, 'html.parser')
+    imgs = []
+    for table in soup('table'):
+        for img in table('img'):
+            imgs.append(img['src'])
+    return imgs
+
+
+def _startpage_imgs(query: str) -> list:
+    url = 'https://startpage.com/do/search?cat=pics&cmd=process_search&query={}'.format(quote_plus(query))
+    with requests.get(url, headers=HEADERS) as r:
+        r.raise_for_status()
+        soup = bs4.BeautifulSoup(r.text, 'html.parser')
+        r.url
+    soup = soup.find('div', class_='mainline-results')
+    if not soup:
+        return []
+    index = url.find('/', 8)
+    if index == -1:
+        root = url
+    else:
+        root = url[:index]
+        url = url.rsplit('/', 1)[0]
+    imgs = []
+    for div in soup('div', {'data-md-thumbnail-url': True}):
+        img = div['data-md-thumbnail-url']
+        if img.startswith('data:'):
+            continue
+        img = re.sub(
+            r'^(//.*)', r'{}:\1'.format(root.split(':', 1)[0]), img)
+        img = re.sub(r'^(/.*)', r'{}\1'.format(root), img)
+        if not re.match(r'^https?://', img):
+            img = '{}/{}'.format(url, img)
+        imgs.append(img)
+    return imgs
+
+
+def _dogpile_imgs(query: str) -> list:
     url = 'https://www.dogpile.com/search/images?q={}'.format(
         quote_plus(query))
     with requests.get(url, headers=HEADERS) as r:
