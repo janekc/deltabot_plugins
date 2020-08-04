@@ -27,10 +27,10 @@ class DBManager:
         with self.db:
             self.db.execute('DELETE FROM games WHERE addr=?', (addr,))
 
-    def set_game(self, addr: str, board: str) -> None:
+    def set_game(self, addr: str, board: str, date: float) -> None:
+        q = 'UPDATE games SET board=?, date=? WHERE addr=?'
         with self.db:
-            self.db.execute(
-                'UPDATE games SET board=? WHERE addr=?', (board, addr))
+            self.db.execute(q, (board, date, addr))
 
     def set_board(self, addr: str, board: Optional[str]) -> None:
         with self.db:

@@ -120,7 +120,7 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='There is no game running')
     else:
         db.set_game(game['p1'], game['p2'], None)
-        replies.add(text='🏳️ Game Over.\n{} surrenders.'.format(loser))
+        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\nPlay again? /chess_new'.format(loser))
 
 
 def cmd_new(command: IncomingCommand, replies: Replies) -> None:
@@ -163,12 +163,12 @@ def run_turn(gid: int) -> str:
             b.theme['P'] if b.turn == b.white else b.theme['p'], b.turn, b)
     db.set_game(g['p1'], g['p2'], None)
     if result == '1/2-1/2':
-        return '🤝 Game over.\nIt is a draw!\n\n{}'.format(b)
+        return '🤝 Game over.\nIt is a draw!\n\n{}\n\nPlay again? /chess_new'.format(b)
     if result == '1-0':
         winner = '{} {}'.format(b.theme['P'], b.white)
     else:
         winner = '{} {}'.format(b.theme['p'], b.black)
-    return '🏆 Game over.\n{} Wins!!!\n\n{}'.format(winner, b)
+    return '🏆 Game over.\n{} Wins!!!\n\n{}\n\nPlay again? /chess_new'.format(winner, b)
 
 
 def getdefault(key: str, value: str = None) -> str:

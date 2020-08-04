@@ -54,14 +54,13 @@ def filter_messages(message: Message, replies: Replies) -> None:
     if game is None:
         return
 
-    if game['addr'] == message.get_sender_contact().addr:
-        try:
-            b = Board(game['board'])
-            b.move(message.text)
-            db.set_board(game['addr'], b.export())
-            replies.add(text=run_turn(message.chat.id))
-        except ValueError:
-            replies.add(text='❌ Invalid move!')
+    try:
+        b = Board(game['board'])
+        b.move(message.text)
+        db.set_board(game['addr'], b.export())
+        replies.add(text=run_turn(message.chat.id))
+    except ValueError:
+        replies.add(text='❌ Invalid move!')
 
 
 # ======== Commands ===============
@@ -82,7 +81,7 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
             player.name)
         replies.add(text=text + run_turn(chat.id), chat=chat)
     else:
-        db.set_game(game['addr'], Board().export())
+        db.set_game(game['addr'], Board().export(), time.time())
         if command.message.chat.id == game['gid']:
             chat = command.message.chat
         else:
@@ -119,7 +118,7 @@ def run_turn(gid: int) -> str:
     result = b.result()
     if result == 1:
         db.set_board(g['addr'], None)
-        return '🏆 Game over. You Win!!!\n\n{}'.format(b)
+        return '🏆 Game over. You Win!!!\n\n{}\n\nPlay again? /sudoku_play'.format(b)
     else:
         return str(b)
 
