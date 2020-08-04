@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+from threading import Thread
 from typing import Generator
+from time import sleep
 import os
 import random
 import string
@@ -117,8 +119,8 @@ def filter_messages(message: Message, replies: Replies) -> None:
         name = get_name(message.get_sender_contact())
         text = '{}:\n{}'.format(name, message.text)
 
-        for g in get_cchats(ch['id']):
-            replies.add(text=text, filename=message.filename or None, chat=g)
+        args = (text, message.filename, get_cchats(ch['id']))
+        Thread(target=send_diffusion, args=args, daemon=True).start()
     elif ch:
         replies.add(text='Only channel operators can do that.')
 
@@ -609,3 +611,23 @@ def get_name(c: Contact) -> str:
     if c.name == c.addr:
         return c.addr
     return '{}({})'.format(c.name, c.addr)
+
+
+def send_diffusion(text: str, filename: str, chats: list) -> None:
+    text = "diffusion: id={} chat={} sent with text: {!r}"
+    if filename:
+        view_type = "file"
+    else:
+        view_type = "text"
+    for chat in chats:
+        msg = Message.new_empty(dbot.account, view_type)
+        if text is not None:
+            msg.set_text(text)
+        if filename is not None:
+            msg.set_file(filename)
+        try:
+            msg = chat.send_msg(msg)
+            dbot.logger.info(text.format(msg.id, msg.chat, msg.text[:50]))
+        except ValueError as err:
+            dbot.logger.exception(err)
+        sleep(1)
