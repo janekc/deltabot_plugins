@@ -22,6 +22,7 @@ Games
 - **Connect Four:** Connect Four game to play with friends.
 - **Reversi:** Reversi/Othello game to play with friends.
 - **Sudoku:** Sudoku single player board game.
+- **Minesweeper:** Single player board game.
 
 
 Misc
