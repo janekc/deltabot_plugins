@@ -614,7 +614,7 @@ def get_name(c: Contact) -> str:
 
 
 def send_diffusion(text: str, filename: str, chats: list) -> None:
-    text = "diffusion: id={} chat={} sent with text: {!r}"
+    log = "diffusion: id={} chat={} sent with text: {!r}"
     if filename:
         view_type = "file"
     else:
@@ -623,11 +623,11 @@ def send_diffusion(text: str, filename: str, chats: list) -> None:
         msg = Message.new_empty(dbot.account, view_type)
         if text is not None:
             msg.set_text(text)
-        if filename is not None:
+        if filename:
             msg.set_file(filename)
         try:
             msg = chat.send_msg(msg)
-            dbot.logger.info(text.format(msg.id, msg.chat, msg.text[:50]))
+            dbot.logger.info(log.format(msg.id, msg.chat, msg.text[:50]))
         except ValueError as err:
             dbot.logger.exception(err)
         sleep(1)
