@@ -95,6 +95,8 @@ class Board:
 
             if mass < max_mass:
                 self._board[i][j] = Atom(mass + w)
+                if 0 in self.result().values():
+                    break
             else:
                 if i > 0:
                     chain.append((i-1, j))
