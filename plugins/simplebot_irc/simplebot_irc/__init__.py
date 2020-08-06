@@ -133,8 +133,8 @@ def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
     """Set your IRC nick or display your current nick if no new nick is given.
     """
     addr = command.message.get_sender_contact().addr
-    new_nick = ' '.join(command.payload.split())
-    if new_nick:
+    if command.payload:
+        new_nick = ' '.join(command.args)
         if not nick_re.match(new_nick):
             replies.add(text='** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters')
         elif db.get_addr(new_nick):

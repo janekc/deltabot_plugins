@@ -50,7 +50,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Chess game groups
     """
-    if not message.text.isalnum():
+    if not message.text.isalnum() and '-' not in message.text:
         return
     game = db.get_game_by_gid(message.chat.id)
     if game is None or game['game'] is None:

@@ -150,6 +150,8 @@ def run_turn(gid: int) -> str:
     if not g:
         return 'This is not your game group'
     b = Board(g['board'])
+    if not g['board']:
+        return 'There is no game running'
     result = b.result()
     if result == -1:
         if b.turn == BLACK:

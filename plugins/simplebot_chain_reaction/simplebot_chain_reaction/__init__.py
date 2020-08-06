@@ -11,7 +11,7 @@ from deltabot.commands import IncomingCommand
 from deltachat import Chat, Contact, Message
 
 
-version = '1.0.1'
+version = '1.0.0'
 db: DBManager
 dbot: DeltaBot
 
@@ -49,8 +49,10 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 def filter_messages(message: Message, replies: Replies) -> None:
     """Process move coordinates in Chain Reaction game groups
     """
+    if len(message.text) != 2 or not message.text.isalnum():
+        return
     game = db.get_game_by_gid(message.chat.id)
-    if game is None or game['board'] is None or len(message.text) != 2:
+    if game is None or game['board'] is None:
         return
 
     b = Board(game['board'])

@@ -50,7 +50,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
         return
 
     game = db.get_game_by_gid(message.chat.id)
-    if game is None:
+    if game is None or game['board'] is None:
         return
 
     try:
