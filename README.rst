@@ -19,6 +19,7 @@ Games
 - **Chain Reaction:** Chain Reaction board game to play with friends.
 - **Checkers:** American Checkers game to play with friends.
 - **Chess:** Chess game to play with friends.
+- **Color Lines:** Single player board game.
 - **Connect Four:** Connect Four game to play with friends.
 - **Reversi:** Reversi/Othello game to play with friends.
 - **Sudoku:** Sudoku single player board game.
