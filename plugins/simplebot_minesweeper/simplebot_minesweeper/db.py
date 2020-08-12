@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Optional
+from typing import Optional, List
 import sqlite3
 
 
@@ -13,7 +13,11 @@ class DBManager:
                 (addr TEXT PRIMARY KEY,
                 gid INTEGER NOT NULL,
                 board TEXT,
-                score INTEGER NOT NULL)''')
+                score FLOAT NOT NULL)''')
+            self.db.execute(
+                '''CREATE TABLE IF NOT EXISTS nicks
+                (addr TEXT PRIMARY KEY,
+                nick TEXT NOT NULL)''')
 
     def add_game(self, addr: str, gid: int, board: str) -> None:
         args = (addr, gid, board, 0)
@@ -25,8 +29,10 @@ class DBManager:
     def delete_game(self, addr: str) -> None:
         with self.db:
             self.db.execute('DELETE FROM games WHERE addr=?', (addr,))
+            self.db.execute('DELETE FROM nicks WHERE addr=?', (addr,))
 
-    def set_game(self, addr: str, board: str, score: int) -> None:
+    def set_game(self, addr: str, board: Optional[str],
+                 score: float) -> None:
         q = 'UPDATE games SET board=?, score=? WHERE addr=?'
         with self.db:
             self.db.execute(q, (board, score, addr))
@@ -43,3 +49,24 @@ class DBManager:
     def get_game_by_addr(self, addr: str) -> Optional[sqlite3.Row]:
         return self.db.execute(
             'SELECT * FROM games WHERE addr=?', (addr,)).fetchone()
+
+    def get_games(self, limit: int = -1) -> List[sqlite3.Row]:
+        q = 'SELECT * FROM games ORDER BY score DESC LIMIT ?'
+        return self.db.execute(q, (limit,)).fetchall()
+
+    # ===== nicks =======
+
+    def get_nick(self, addr: str) -> Optional[str]:
+        r = self.db.execute(
+            'SELECT nick from nicks WHERE addr=?', (addr,)).fetchone()
+        return r and r[0]
+
+    def set_nick(self, addr: str, nick: str) -> None:
+        with self.db:
+            self.db.execute(
+                'REPLACE INTO nicks VALUES (?,?)', (addr, nick))
+
+    def get_addr(self, nick: str) -> Optional[str]:
+        r = self.db.execute(
+            'SELECT addr FROM nicks WHERE nick=?', (nick,)).fetchone()
+        return r and r[0]

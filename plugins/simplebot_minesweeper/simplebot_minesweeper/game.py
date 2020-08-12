@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from typing import Generator
 import random
+import time
 
 import minesweeper
 
@@ -33,9 +34,13 @@ ROWS = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭', '🇮']
 class Board:
     def __init__(self, board: str = None) -> None:
         if board:
+            lines = board.split('\n')
+            self.date = float(lines.pop(0))
+            board = lines.pop(0)
             self._board = [
                 [board[i*9 + j] for j in range(9)] for i in range(9)]
         else:
+            self.date = time.time()
             my_generator = minesweeper.Generator(9, 9, mine_id=MINE)
             self._board = my_generator.generate_raw(
                 random.randint(10, 20))
@@ -44,8 +49,18 @@ class Board:
                     if n != MINE:
                         self._board[i][j] = HIDDEN
 
+    def get_score(self) -> float:
+        mines = 0
+        for row in self._board:
+            for cell in row:
+                if cell == MINE:
+                    mines += 1
+        return round(mines/(time.time() - self.date) * 10**4, 2) or 1
+
     def export(self) -> str:
-        return ''.join(''.join(row) for row in self._board)
+        board = str(self.date) + '\n'
+        board += ''.join(''.join(row) for row in self._board)
+        return board
 
     def __str__(self) -> str:
         text = '|'.join(COLS) + '\n'
@@ -103,13 +118,11 @@ class Board:
         return sum
 
     def get_dirs(self, i: int, j: int) -> Generator:
-        vectors = ((-1, -1), (-1, 0), (-1, 1), (0, -1),
-                   (0, 1), (1, -1), (1, 0), (1, 1))
-        for row, col in vectors:
-            row += i
-            col += j
-            if self.on_board(row, col):
-                yield (row, col)
+        for row in range(-1, 2):
+            for col in range(-1, 2):
+                if (row, col) != (0, 0):
+                    if self.on_board(row+i, col+j):
+                        yield (row+i, col+j)
 
     def result(self):
         game_over = True
