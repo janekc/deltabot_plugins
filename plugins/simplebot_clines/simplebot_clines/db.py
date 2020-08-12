@@ -29,6 +29,7 @@ class DBManager:
     def delete_game(self, addr: str) -> None:
         with self.db:
             self.db.execute('DELETE FROM games WHERE addr=?', (addr,))
+            self.db.execute('DELETE FROM nicks WHERE addr=?', (addr,))
 
     def set_game(self, addr: str, board: Optional[str],
                  score: int) -> None:

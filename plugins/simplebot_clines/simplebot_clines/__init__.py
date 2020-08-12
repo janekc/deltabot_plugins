@@ -85,17 +85,15 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
         return
     game = db.get_game_by_addr(player.addr)
 
-    if game is None:  # make a new chat
-        b = Board()
+    if game is None:  # create a new chat
         chat = command.bot.create_group('🌈 Color Lines', [player.addr])
-        db.add_game(player.addr, chat.id, b.export())
+        db.add_game(player.addr, chat.id, Board().export())
         text = 'Hello {}, in this group you can play Color Lines.\n\n'
         replies.add(
             text=text.format(player.name) + run_turn(chat.id), chat=chat)
     else:
-        b = Board()
-        b.old_score = game['score']
-        db.set_board(game['addr'], b.export())
+        db.set_board(
+            game['addr'], Board(old_score=game['score']).export())
         if command.message.chat.id == game['gid']:
             chat = command.message.chat
         else:
@@ -162,8 +160,8 @@ def cmd_top(command: IncomingCommand, replies: Replies) -> None:
     Example: `/lines_top`
     """
     limit = 15
-    text = '🏆 Scoreboard\n\n'
-    game = db.get_game_by_gid(command.message.chat.id)
+    text = '🏆 Color Lines Scoreboard\n\n'
+    game = db.get_game_by_addr(command.message.get_sender_contact().addr)
     if not game:
         games = db.get_games(limit)
     else:
@@ -199,7 +197,7 @@ def run_turn(gid: int) -> str:
     if b.result() == 1:
         if b.score > b.old_score:
             db.set_game(g['addr'], None, b.score)
-            text = '🏆 Game over\n📊 New High Score: {}\n/lines_top\n\n {}'
+            text = '🏆 Game over\n📊 New High Score: {}\n/lines_top\n\n{}'
         else:
             db.set_board(g['addr'], None)
             text = '☠️ Game over\n📊 Score: {}\n\n {}'

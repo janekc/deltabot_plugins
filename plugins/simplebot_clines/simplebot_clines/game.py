@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import Optional
-from random import randint
+from random import randint, randrange, sample
 
 
 CELL = ['⬜', '🔴', '🟢', '🟡', '🔵', '🟣', '🟠', '🟤']
@@ -9,7 +9,7 @@ ROWS = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭', '🇮']
 
 
 class Board:
-    def __init__(self, game: str = None) -> None:
+    def __init__(self, game: str = None, old_score: int = 0) -> None:
         if game:
             lines = game.split('\n')
             self.score = int(lines.pop(0))
@@ -17,7 +17,7 @@ class Board:
             self.game = Field(balls=lines.pop(0), board=lines.pop(0))
         else:
             self.score = 0
-            self.old_score = 0
+            self.old_score = old_score
             self.game = Field()
             self.game.set_next_balls()
 
@@ -44,43 +44,44 @@ class Board:
 
         return text
 
-    def is_valid(self, oi: int, oj: int, ei: int, ej: int) -> bool:
-        return self.game.try_move(oi, oj, ei, ej)
+    def update_score(self):
+        self.score += self.game.score
+        self.game.score = 0
+
+    def get_position(self, coord) -> tuple:
+        sorted_coord = sorted(coord.lower())
+        x = '123456789'.find(sorted_coord[0])
+        y = 'abcdefghi'.find(sorted_coord[1])
+        return (x, y)
 
     def move(self, coords: str) -> None:
-        orig_coord = sorted(coords[:2].lower())
-        end_coord = sorted(coords[2:].lower())
-        o_j = 'abcdefghi'.find(orig_coord[1])
-        o_i = '123456789'.find(orig_coord[0])
-        e_j = 'abcdefghi'.find(end_coord[1])
-        e_i = '123456789'.find(end_coord[0])
+        x1, y1 = self.get_position(coords[:2])
+        x2, y2 = self.get_position(coords[2:])
 
-        if not self.is_valid(o_i, o_j, e_i, e_j):
+        if not self.game.try_move(x1, y1, x2, y2):
             raise ValueError('Invalid move')
 
-        self.game.make_step(o_i, o_j, e_i, e_j)
+        self.game.make_step(x1, y1, x2, y2)
 
-        balls = self.game.find_full_lines(e_i, e_j)
-        if balls is None:
-            self.next()
-        else:
+        balls = self.game.find_full_lines(x2, y2)
+        if balls:
             self.game.delete_full_lines(balls)
-            for e in self.game.set_balls:
-                array = self.game.find_full_lines(e[0], e[1])
-                if array is not None:
-                    self.game.delete_full_lines(array)
-        self.score += self.game.score
+            self.update_score()
+        else:
+            self.next()
 
     def next(self) -> None:
-        try:
-            self.game.set_next_balls()
-        except FieldFullException:
-            pass
+        self.game.set_next_balls()
+        for e in self.game.set_balls:
+            array = self.game.find_full_lines(e[0], e[1])
+            if array is not None:
+                self.game.delete_full_lines(array)
+        self.update_score()
 
     def result(self) -> int:
-        if len(self.game.free_cells) <= self.game.number_of_next_ball:
-            return 1
-        return 0
+        if self.game.free_cells:
+            return 0
+        return 1
 
 
 class Ball:
@@ -212,11 +213,15 @@ class Field:
 
     def set_next_balls(self) -> None:
         """install the next balls on field"""
-        if len(self.free_cells) <= self.number_of_next_ball:
-            raise FieldFullException()
+        k = len(self.free_cells)
+        if k < self.number_of_next_ball:
+            balls = sample(self.next_balls, k=k)
+        else:
+            balls = self.next_balls
         self.set_balls.clear()
-        for ball in self.next_balls:
-            coordinates = self.free_cells[randint(0, len(self.free_cells)) - 1]
+        for ball in balls:
+            pos = randrange(0, len(self.free_cells))
+            coordinates = self.free_cells[pos]
             self.set_ball(coordinates[0], coordinates[1], ball)
             self.set_balls.append((coordinates[0], coordinates[1]))
         self.make_next_balls()
@@ -242,10 +247,9 @@ class Field:
             visited_cells.append((coordinates[0], coordinates[1]))
             for dy in range(-1, 2):
                 for dx in range(-1, 2):
-                    if dx != 0 and dy != 0:
-                        continue
-                    else:
-                        queue.append((coordinates[0] + dx, coordinates[1] + dy))
+                    if 0 in (dx, dy):
+                        queue.append(
+                            (coordinates[0] + dx, coordinates[1] + dy))
         return False
 
     def make_step(self, start_x: int, start_y: int, end_x: int,
@@ -328,8 +332,3 @@ class Field:
         """Scoring by length of remote line"""
         multiplier = length_of_remote_line % self.balls_in_line + 1
         self.score += 10 * length_of_remote_line * multiplier
-
-
-class FieldFullException(Exception):
-    """Field full and no places to set next balls"""
-    pass
