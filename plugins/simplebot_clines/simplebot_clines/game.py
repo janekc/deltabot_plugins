@@ -74,7 +74,7 @@ class Board:
         self.game.set_next_balls()
         for e in self.game.set_balls:
             array = self.game.find_full_lines(e[0], e[1])
-            if array is not None:
+            if array:
                 self.game.delete_full_lines(array)
         self.update_score()
 
@@ -259,10 +259,11 @@ class Field:
         self.set_ball(end_x, end_y, ball)
         self.delete_ball(start_x, start_y)
 
-    def find_full_lines(self, x: int, y: int) -> Optional[list]:
+    def find_full_lines(self, x: int, y: int) -> list:
         """Find all full lines starting by coordinates of ball"""
         if self.get_ball(x, y) is None:
-            return None
+            return []
+        balls = []
         current_color = self.get_color_of_ball(x, y)
         ball_for_delete = []
         minus_dx = x
@@ -274,9 +275,8 @@ class Field:
             ball_for_delete.append((plus_dx, y))
             plus_dx += 1
         if len(ball_for_delete) >= self.balls_in_line:
-            return ball_for_delete
-        else:
-            ball_for_delete.clear()
+            balls.extend(ball_for_delete)
+        ball_for_delete.clear()
         minus_dy = y
         plus_dy = y + 1
         while minus_dy >= 0 and self.get_color_of_ball(x, minus_dy) == current_color:
@@ -286,9 +286,8 @@ class Field:
             ball_for_delete.append((x, plus_dy))
             plus_dy += 1
         if len(ball_for_delete) >= self.balls_in_line:
-            return ball_for_delete
-        else:
-            ball_for_delete.clear()
+            balls.extend(ball_for_delete)
+        ball_for_delete.clear()
         minus_dx = x
         minus_dy = y
         plus_dx = x + 1
@@ -302,9 +301,8 @@ class Field:
             plus_dx += 1
             plus_dy += 1
         if len(ball_for_delete) >= self.balls_in_line:
-            return ball_for_delete
-        else:
-            ball_for_delete.clear()
+            balls.extend(ball_for_delete)
+        ball_for_delete.clear()
         minus_dx = x
         plus_dy = y
         while minus_dx >= 0 and plus_dy < self.height and self.get_color_of_ball(minus_dx, plus_dy) == current_color:
@@ -318,8 +316,8 @@ class Field:
             plus_dx += 1
             minus_dy -= 1
         if len(ball_for_delete) >= self.balls_in_line:
-            return ball_for_delete
-        return None
+            balls.extend(ball_for_delete)
+        return balls
 
     def delete_full_lines(self, array_of_balls_coord: Optional[list]) -> None:
         """Delete full lines"""
