@@ -319,14 +319,14 @@ class Field:
             balls.extend(ball_for_delete)
         return balls
 
-    def delete_full_lines(self, array_of_balls_coord: Optional[list]) -> None:
+    def delete_full_lines(self, array_of_balls_coord: list) -> None:
         """Delete full lines"""
-        if array_of_balls_coord is not None:
+        if array_of_balls_coord:
             self.scoring(len(array_of_balls_coord))
             for coordinate in array_of_balls_coord:
-                self.delete_ball(coordinate[0], coordinate[1])
+                self.delete_ball(*coordinate)
 
     def scoring(self, length_of_remote_line: int) -> None:
         """Scoring by length of remote line"""
-        multiplier = length_of_remote_line % self.balls_in_line + 1
+        multiplier = length_of_remote_line - self.balls_in_line + 1
         self.score += 10 * length_of_remote_line * multiplier
