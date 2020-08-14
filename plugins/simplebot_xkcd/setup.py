@@ -40,10 +40,10 @@ if __name__ == "__main__":
         include_package_data=True,
         packages=find_packages(),
         install_requires=[
-            'deltabot',
+            'simplebot',
             'xkcd',
         ],
         entry_points={
-            'deltabot.plugins': '{0} = {0}'.format(module_name),
+            'simplebot.plugins': '{0} = {0}'.format(module_name),
         },
     )
