@@ -21,9 +21,10 @@ Games
 - **Chess:** Chess game to play with friends.
 - **Color Lines:** Single player board game.
 - **Connect Four:** Connect Four game to play with friends.
+- **Exquisite Corpse:** Multiplayer game to play with a group of friends.
+- **Minesweeper:** Single player board game.
 - **Reversi:** Reversi/Othello game to play with friends.
 - **Sudoku:** Sudoku single player board game.
-- **Minesweeper:** Single player board game.
 
 
 Misc
