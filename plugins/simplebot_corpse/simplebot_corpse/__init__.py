@@ -154,7 +154,7 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
         return
 
     db.add_player(sender.addr, 1, gid)
-    replies.add(text=show_status(gid))
+    replies.add(text=show_status(gid, g['turn']))
 
 
 def cmd_start(command: IncomingCommand, replies: Replies) -> None:
