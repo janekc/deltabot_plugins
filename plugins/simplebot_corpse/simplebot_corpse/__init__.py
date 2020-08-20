@@ -32,6 +32,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot.commands.register('/corpse_join', cmd_join)
     dbot.commands.register('/corpse_start', cmd_start)
     dbot.commands.register('/corpse_end', cmd_end)
+    dbot.commands.register('/corpse_leave', cmd_leave)
     dbot.commands.register('/corpse_status', cmd_status)
 
 
@@ -41,21 +42,13 @@ def deltabot_member_removed(chat: Chat, contact: Contact,
     g = db.get_game_by_gid(chat.id)
     if not g:
         return
-    me = dbot.self_contact
-
-    if me == contact or len(chat.get_contacts()) <= 1:
+    if dbot.self_contact == contact or len(chat.get_contacts()) <= 1:
         db.delete_game(chat.id)
         return
+
     p = db.get_player_by_addr(contact.addr)
-    if p is not None and p['game'] == chat.id:
-        db.delete_player(p['addr'])
-        if contact.addr == g['turn']:
-            p = get_by_round(chat.id)
-            if p is None or len(db.get_players(chat.id)) <= 1:
-                replies.add(text=end_game(chat.id))
-            else:
-                db.set_turn(chat.id, p['addr'])
-                run_turn(p, chat, g['text'])
+    if p is not None and p['game'] == g['gid']:
+        remove_from_game(p, g)
 
 
 # ======== Filters ===============
@@ -181,6 +174,7 @@ def cmd_start(command: IncomingCommand, replies: Replies) -> None:
 
     db.set_text(gid, '')
     player = get_by_round(gid)
+    assert player is not None
     db.set_turn(gid, player['addr'])
     run_turn(player, command.message.chat, '')
 
@@ -191,6 +185,20 @@ def cmd_end(command: IncomingCommand, replies: Replies) -> None:
     Example: `/corpse_end`
     """
     replies.add(text=end_game(command.message.chat.id))
+
+
+def cmd_leave(command: IncomingCommand, replies: Replies) -> None:
+    """Leave Exquisite Corpse game in current group.
+
+    Example: `/corpse_leave`
+    """
+    g = db.get_game_by_gid(command.message.chat.id)
+    p = db.get_player_by_addr(command.message.get_sender_contact().addr)
+    if None in (g, p) or p['game'] != g['gid']:
+        replies.add(text='❌ You are not playing Exquisite Corpse here.')
+        return
+
+    remove_from_game(p, g)
 
 
 def cmd_status(command: IncomingCommand, replies: Replies) -> None:
@@ -220,7 +228,7 @@ def get_db(bot: DeltaBot) -> DBManager:
 
 def run_turn(player: sqlite3.Row, group: Chat, paragraph: str) -> None:
     contact = dbot.get_contact(player['addr'])
-    text = ec + "⏳ Round {}\n\n{}, it's your turn...".format(
+    text = ec + "⏳ Round {}/3\n\n{}, it's your turn...".format(
         player['round'], contact.name)
     group.send_text(text)
 
@@ -267,8 +275,20 @@ def end_game(gid: int) -> str:
     assert g is not None
     text = ec
     if g['text']:
-        text += '📜 The result is:\n' + g['text']
+        text += '⌛ Game finished!\n📜 The result is:\n' + g['text']
     else:
-        text += '⚰️ Game over!!!'
+        text += '❌ Game aborted'
     db.delete_game(gid)
-    return text
+    return text + '\n\n▶️ Play again? /corpse_new'
+
+
+def remove_from_game(player, game) -> None:
+    db.delete_player(player['addr'])
+    if player['addr'] == game['turn']:
+        p = get_by_round(player['game'])
+        chat = dbot.get_chat(player['game'])
+        if p is None or len(db.get_players(player['game'])) <= 1:
+            chat.send_text(end_game(player['game']))
+        else:
+            db.set_turn(player['game'], p['addr'])
+            run_turn(p, chat, game['text'])
