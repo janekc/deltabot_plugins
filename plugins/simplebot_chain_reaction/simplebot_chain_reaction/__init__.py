@@ -117,7 +117,7 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='There is no game running')
     else:
         db.set_board(game['p1'], game['p2'], None)
-        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\nPlay again? /chr_new'.format(loser))
+        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /chr_new'.format(loser))
 
 
 def cmd_new(command: IncomingCommand, replies: Replies) -> None:
@@ -173,7 +173,7 @@ def run_turn(gid: int) -> str:
         text = "{} it's your turn...\n\n{}\n\n".format(turn, b)
     b_orb = b.get_orb(Atom.BLACK)
     w_orb = b.get_orb(Atom.WHITE)
-    return text + '{} {} – {} {}\n\nPlay again? /chr_new'.format(
+    return text + '{} {} – {} {}\n\n▶️ Play again? /chr_new'.format(
         b_orb, result[Atom.BLACK], result[Atom.WHITE], w_orb)
 
 

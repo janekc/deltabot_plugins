@@ -118,7 +118,8 @@ def run_turn(gid: int) -> str:
     result = b.result()
     if result == 1:
         db.set_board(g['addr'], None)
-        return '🏆 Game over. You Win!!!\n\n{}\n\nPlay again? /sudoku_play'.format(b)
+        text = '🏆 Game over. You Win!!!\n\n{}'.format(b)
+        return text + '\n\n▶️ Play again? /sudoku_play'
     else:
         return str(b)
 

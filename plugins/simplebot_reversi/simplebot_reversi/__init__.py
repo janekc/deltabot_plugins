@@ -116,7 +116,7 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='There is no game running')
     else:
         db.set_board(game['p1'], game['p2'], None)
-        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\nPlay again? /reversi_new'.format(loser))
+        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /reversi_new'.format(loser))
 
 
 def cmd_new(command: IncomingCommand, replies: Replies) -> None:
@@ -165,14 +165,13 @@ def run_turn(gid: int) -> str:
             disk = b.get_disk(WHITE)
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             turn = '{} {}'.format(disk, p2)
-        return "{} it's your turn...\n\n{}\n\n{}".format(
+        text = "{} it's your turn...\n\n{}\n\n{}".format(
             turn, b, b.get_score())
     else:
         db.set_board(g['p1'], g['p2'], None)
         black, white = result[BLACK], result[WHITE]
         if black == white:
-            return '🤝 Game over.\nIt is a draw!\n\n{}\n\n{}\n\nPlay again? /reversi_new'.format(
-                b, b.get_score())
+            text = '🤝 Game over.\nIt is a draw!\n\n'
         else:
             if black > white:
                 disk = b.get_disk(BLACK)
@@ -181,8 +180,10 @@ def run_turn(gid: int) -> str:
                 disk = b.get_disk(WHITE)
                 p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
                 winner = '{} {}'.format(disk, p2)
-            return '🏆 Game over.\n{} Wins!!!\n\n{}\n\n{}\n\nPlay again? /reversi_new'.format(
-                winner, b, b.get_score())
+            text = '🏆 Game over.\n{} Wins!\n\n'.format(winner)
+        text += '\n\n'.join((
+            str(b), b.get_score(), '▶️ Play again? /reversi_new'))
+    return text
 
 
 def get_db(bot: DeltaBot) -> DBManager:

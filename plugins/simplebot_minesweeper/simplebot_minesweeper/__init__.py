@@ -191,7 +191,7 @@ def run_turn(gid: int) -> str:
         text = '☠️ Game over. You died.\n/mines_top'
     else:
         return str(b)
-    text += '\n\n{}\nPlay again?  /mines_play'.format(b.reveal(result))
+    text += '\n\n{}\n▶️ Play again? /mines_play'.format(b.reveal(result))
     return text
 
 

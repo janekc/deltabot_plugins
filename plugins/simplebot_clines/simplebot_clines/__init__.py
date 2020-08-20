@@ -202,7 +202,7 @@ def run_turn(gid: int) -> str:
             db.set_board(g['addr'], None)
             text = '☠️ Game over\n📊 Score: {}\n\n {}'
         text = text.format(b.score, b)
-        text += '\nPlay again?  /lines_play'
+        text += '\n▶️ Play again?  /lines_play'
         return text
     else:
         text = '📊 Score: {} / {}\n\n{}'.format(b.score, g['score'], b)

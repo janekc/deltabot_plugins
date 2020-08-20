@@ -116,7 +116,7 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='There is no game running')
     else:
         db.set_board(game['p1'], game['p2'], None)
-        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\nPlay again? /c4_new'.format(loser))
+        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /c4_new'.format(loser))
 
 
 def cmd_new(command: IncomingCommand, replies: Replies) -> None:
@@ -162,19 +162,20 @@ def run_turn(gid: int) -> str:
             disc = b.get_disc(WHITE)
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             turn = '{} {}'.format(disc, p2)
-        return "{} it's your turn...\n\n{}".format(turn, b)
+        text = "{} it's your turn...\n\n{}".format(turn, b)
     else:
         db.set_board(g['p1'], g['p2'], None)
         if result == '-':
-            return '🤝 Game over.\nIt is a draw!\n\n{}\n\nPlay again? /c4_new'.format(b)
-        if result == BLACK:
-            disc = b.get_disc(BLACK)
-            winner = '{} {}'.format(disc, g['black'])
+            text = '🤝 Game over.\nIt is a draw!'
         else:
-            disc = b.get_disc(WHITE)
-            p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
-            winner = '{} {}'.format(disc, p2)
-        return '🏆 Game over.\n{} Wins!!!\n\n{}\n\nPlay again? /c4_new'.format(winner, b)
+            if result == BLACK:
+                winner = '{} {}'.format(b.get_disc(BLACK), g['black'])
+            else:
+                p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
+                winner = '{} {}'.format(b.get_disc(WHITE), p2)
+            text = '🏆 Game over.\n{} Wins!'.format(winner)
+        text += '\n\n{}\n\n▶️ Play again? /c4_new'.format(b)
+    return text
 
 
 def get_db(bot: DeltaBot) -> DBManager:
