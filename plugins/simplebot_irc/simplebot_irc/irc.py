@@ -1,5 +1,5 @@
+# -*- coding: utf-8 -*-
 import irc.bot
-import irc.strings
 # typing
 from .database import DBManager
 from deltabot import DeltaBot

@@ -134,7 +134,7 @@ def cmd_nick(command: IncomingCommand, replies: Replies) -> None:
     """
     addr = command.message.get_sender_contact().addr
     if command.payload:
-        new_nick = ' '.join(command.args)
+        new_nick = '_'.join(command.args)
         if not nick_re.match(new_nick):
             replies.add(text='** Invalid nick, only letters and numbers are allowed, and nick should be less than 30 characters')
         elif db.get_addr(new_nick):
@@ -190,12 +190,16 @@ def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
     if not command.payload:
         replies.add(text="Wrong syntax")
         return
+    if not command.message.chat.is_group():
+        replies.add(text="This is not a group")
+        return
     if not db.is_whitelisted(command.payload):
         replies.add(text="That channel isn't in the whitelist")
         return
     channel = db.get_channel_by_gid(command.message.chat.id)
     if channel:
-        replies.add(text="This chat is already bridged to channel: {}".format(channel))
+        replies.add(
+            text="This chat is already bridged to channel: {}".format(channel))
         return
 
     if not db.channel_exists(command.payload):
@@ -258,7 +262,7 @@ def run_irc() -> None:
         try:
             irc_bridge.start()
         except Exception as ex:
-            dbot.logger.exception('Error on IRC bridge: ', ex)
+            dbot.logger.exception('Error on IRC bridge: %s', ex)
             sleep(5)
 
 
