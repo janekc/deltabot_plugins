@@ -570,7 +570,7 @@ def generate_pid(length: int = 6) -> str:
 def get_mchats(mgid: int) -> Generator:
     for gid in db.get_mchats(mgid):
         g = dbot.get_chat(gid)
-        if g:
+        if g and dbot.self_contact in g.get_contacts():
             yield g
         else:
             db.remove_mchat(gid)
@@ -579,7 +579,7 @@ def get_mchats(mgid: int) -> Generator:
 def get_cchats(cgid: int, include_admin: bool = False) -> Generator:
     for gid in db.get_cchats(cgid):
         g = dbot.get_chat(gid)
-        if g:
+        if g and dbot.self_contact in g.get_contacts():
             yield g
         else:
             db.remove_cchat(gid)
