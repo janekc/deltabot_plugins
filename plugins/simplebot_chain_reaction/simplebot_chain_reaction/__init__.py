@@ -155,7 +155,11 @@ def run_turn(gid: int) -> str:
     if not g['board']:
         return 'There is no game running'
     b = Board(g['board'])
+    b_orb = b.get_orb(Atom.BLACK)
+    w_orb = b.get_orb(Atom.WHITE)
     result = b.result()
+    board = '{}\n\n{} {} – {} {}'.format(
+        b, b_orb, result[Atom.BLACK], result[Atom.WHITE], w_orb)
     if 0 in result.values() and not b.fist_round:
         db.set_board(g['p1'], g['p2'], None)
         if result[Atom.WHITE] == 0:
@@ -163,18 +167,16 @@ def run_turn(gid: int) -> str:
         else:
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             winner = '{} {}'.format(b.get_orb(Atom.WHITE), p2)
-        text = '🏆 Game over.\n{} Wins!!!\n\n{}\n\n'.format(winner, b)
+        text = '🏆 Game over.\n{} Wins!!!\n\n{}'.format(winner, board)
+        text += '\n\n▶️ Play again? /chr_new'
     else:
         if b.turn == Atom.BLACK:
             turn = '{} {}'.format(b.get_orb(b.turn), g['black'])
         else:
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
             turn = '{} {}'.format(b.get_orb(b.turn), p2)
-        text = "{} it's your turn...\n\n{}\n\n".format(turn, b)
-    b_orb = b.get_orb(Atom.BLACK)
-    w_orb = b.get_orb(Atom.WHITE)
-    return text + '{} {} – {} {}\n\n▶️ Play again? /chr_new'.format(
-        b_orb, result[Atom.BLACK], result[Atom.WHITE], w_orb)
+        text = "{} it's your turn...\n\n{}".format(turn, board)
+    return text
 
 
 def get_db(bot: DeltaBot) -> DBManager:
