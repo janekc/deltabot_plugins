@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
 from urllib.parse import quote_plus, unquote_plus, quote
-import tempfile
 import io
 import re
+import os
+import shutil
+import tempfile
+import threading
 import mimetypes
 import zipfile
 import zlib
 
 from deltabot.hookspec import deltabot_hookimpl
+from deltachat import Message
 from readability import Document
 from html2text import html2text
 import bs4
@@ -99,11 +103,39 @@ def cmd_wttr(command: IncomingCommand, replies: Replies) -> None:
 def cmd_web(command: IncomingCommand, replies: Replies) -> None:
     """Download a webpage or file.
     """
-    mode = get_mode(command.message.get_sender_contact().addr)
-    try:
-        replies.add(**download_file(command.payload, mode))
-    except FileTooBig as err:
-        replies.add(text=str(err))
+    def download(cmd):
+        mode = get_mode(cmd.message.get_sender_contact().addr)
+        try:
+            d = download_file(cmd.payload, mode)
+            text = d.get('text')
+            filename = d.get('filename')
+            bytefile = d.get('bytefile')
+            tempdir = tempfile.mkdtemp() if bytefile else None
+            try:
+                if bytefile:
+                    filename = os.path.join(tempdir, filename)
+                    with open(filename, "wb") as f:
+                        f.write(bytefile.read())
+                if filename:
+                    view_type = "file"
+                else:
+                    view_type = "text"
+                msg = Message.new_empty(cmd.bot.account, view_type)
+                if text is not None:
+                    msg.set_text(text)
+                if filename is not None:
+                    msg.set_file(filename)
+                msg = cmd.message.chat.send_msg(msg)
+                cmd.bot.logger.info(
+                    "reply id={} chat={} sent with text: {!r}".format(
+                        msg.id, msg.chat, msg.text[:50]))
+            finally:
+                if tempdir:
+                    shutil.rmtree(tempdir)
+        except FileTooBig as err:
+            cmd.message.chat.send_text(str(err))
+
+    threading.Thread(target=download, args=(command,), daemon=True).start()
 
 
 def cmd_read(command: IncomingCommand, replies: Replies) -> None:
