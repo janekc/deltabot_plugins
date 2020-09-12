@@ -314,7 +314,7 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
         if len(data) == 2:
             pid = data[1]
         mg = db.get_mgroup_by_id(gid)
-        if mg and (mg['status'] == Status.PUBLIC or mg['pid'] == pid):
+        if mg and (mg['status'] == Status.PUBLIC or command.bot.is_admin() or mg['pid'] == pid):
             g = None
             gsize = int(getdefault('max_mgroup_size'))
             for group in get_mchats(mg['id']):
@@ -341,14 +341,15 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
         gid = int(data[0][1:])
         if len(data) == 2:
             pid = data[1]
+        is_admin = command.bot.is_admin()
         gr = db.get_group(gid)
-        if gr and (gr['status'] == Status.PUBLIC or gr['pid'] == pid):
+        if gr and (is_admin or gr['status'] == Status.PUBLIC or gr['pid'] == pid):
             g = command.bot.get_chat(gr['id'])
             contacts = g.get_contacts()
             if sender in contacts:
                 replies.add(
                     text='{}, you are already a member of this group'.format(sender.addr), chat=g)
-            elif len(contacts) < int(getdefault('max_group_size')):
+            elif len(contacts) < int(getdefault('max_group_size')) or is_admin:
                 add_contact(g, sender)
                 replies.add(text=text.format(
                     g.get_name(), gr['topic'], command.payload))
