@@ -91,7 +91,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 
 @deltabot_hookimpl
-def deltabot_ban(self, address: str) -> None:
+def deltabot_ban(address: str) -> None:
     me = dbot.self_contact
     c = dbot.get_contact(address)
     for g in db.get_groups(Status.PUBLIC) + db.get_groups(Status.PRIVATE):
