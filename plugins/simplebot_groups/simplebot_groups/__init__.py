@@ -38,8 +38,8 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    if allow_mgroups == '1':
-        dbot.commands.register('/group_mega', cmd_mega)
+    dbot.commands.register(
+        '/group_mega', cmd_mega, admin=(allow_mgroups != '1'))
     dbot.commands.register('/group_info', cmd_info)
     dbot.commands.register('/group_list', cmd_list)
     dbot.commands.register('/group_me', cmd_me)
@@ -47,8 +47,8 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot.commands.register('/group_join', cmd_join)
     dbot.commands.register('/group_topic', cmd_topic)
     dbot.commands.register('/group_remove', cmd_remove)
-    if allow_channels == '1':
-        dbot.commands.register('/group_chan', cmd_chan)
+    dbot.commands.register(
+        '/group_chan', cmd_chan, admin=(allow_channels != '1'))
     # dbot.commands.register('/group_public', cmd_public)
     # dbot.commands.register('/group_private', cmd_private)
 
@@ -306,6 +306,7 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     """Join the given group or channel.
     """
     sender = command.message.get_sender_contact()
+    is_admin = command.bot.is_admin(sender.addr)
     pid = ''
     text = 'Added to {}\n\nTopic: {}\n\nLeave: /group_remove_{}'
     if command.payload.startswith('m'):
@@ -314,7 +315,7 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
         if len(data) == 2:
             pid = data[1]
         mg = db.get_mgroup_by_id(gid)
-        if mg and (mg['status'] == Status.PUBLIC or command.bot.is_admin() or mg['pid'] == pid):
+        if mg and (mg['status'] == Status.PUBLIC or is_admin or mg['pid'] == pid):
             g = None
             gsize = int(getdefault('max_mgroup_size'))
             for group in get_mchats(mg['id']):
@@ -341,7 +342,6 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
         gid = int(data[0][1:])
         if len(data) == 2:
             pid = data[1]
-        is_admin = command.bot.is_admin()
         gr = db.get_group(gid)
         if gr and (is_admin or gr['status'] == Status.PUBLIC or gr['pid'] == pid):
             g = command.bot.get_chat(gr['id'])
