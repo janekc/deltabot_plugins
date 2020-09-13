@@ -90,6 +90,30 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
                 db.remove_cchat(chat.id)
 
 
+@deltabot_hookimpl
+def deltabot_ban(self, address: str) -> None:
+    me = dbot.self_contact
+    c = dbot.get_contact(address)
+    for g in db.get_groups(Status.PUBLIC) + db.get_groups(Status.PRIVATE):
+        chat = dbot.get_chat(g['id'])
+        if chat:
+            contacts = chat.get_contacts()
+            if c in contacts and me in contacts:
+                chat.remove_contact(c)
+
+    for mg in db.get_mgroups(Status.PUBLIC) + db.get_mgroups(Status.PRIVATE):
+        for chat in get_mchats(mg['id']):
+            contacts = chat.get_contacts()
+            if c in contacts and me in contacts:
+                chat.remove_contact(c)
+
+    for ch in db.get_channels(Status.PUBLIC) + db.get_channels(Status.PRIVATE):
+        for chat in get_cchats(ch['id']):
+            contacts = chat.get_contacts()
+            if c in contacts and me in contacts:
+                chat.remove_contact(c)
+
+
 # ======== Filters ===============
 
 def filter_messages(message: Message, replies: Replies) -> None:
