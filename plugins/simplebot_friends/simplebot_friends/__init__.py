@@ -94,7 +94,7 @@ def cmd_profile(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='No biography found for {}'.format(contact.addr))
     else:
         replies.add(filename=contact.get_profile_image(),
-                    text='{}:\n{}'.format(command.payload, bio))
+                    text='{}:\n{}'.format(contact.addr, bio))
 
 
 # ======== Utilities ===============
