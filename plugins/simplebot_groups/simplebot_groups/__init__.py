@@ -49,6 +49,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot.commands.register('/group_remove', cmd_remove)
     dbot.commands.register(
         '/group_chan', cmd_chan, admin=(allow_channels != '1'))
+    dbot.commands.register('/group_joinall', cmd_joinall, admin=True)
     # dbot.commands.register('/group_public', cmd_public)
     # dbot.commands.register('/group_private', cmd_private)
 
@@ -403,6 +404,27 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
             text = 'Added to {}\n\nTopic: {}\n\nLeave: /group_remove'
             replies.add(text=text.format(ch['name'], ch['topic']), chat=g)
             return
+
+    replies.add(text='Invalid ID')
+
+
+def cmd_joinall(command: IncomingCommand, replies: Replies) -> None:
+    """Join all subgroups of the given mega group.
+    """
+    sender = command.message.get_sender_contact()
+    text = 'Added to {}\n\nTopic: {}\n\nLeave: /group_remove_{}'
+    arg0 = command.args[0]
+    gid = int(arg0[1:] if arg0.startswith('m') else arg0)
+    mg = db.get_mgroup_by_id(gid)
+    if mg:
+        for group in get_mchats(mg['id']):
+            try:
+                add_contact(group, sender)
+            except ValueError:
+                pass
+        text = text.format(mg['name'], mg['topic'], command.payload)
+        replies.add(text=text)
+        return
 
     replies.add(text='Invalid ID')
 
