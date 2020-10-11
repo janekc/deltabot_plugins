@@ -654,4 +654,4 @@ def send_diffusion(text: str, filename: str, chats: list) -> None:
             dbot.logger.info(log.format(msg.id, msg.chat, msg.text[:50]))
         except ValueError as err:
             dbot.logger.exception(err)
-        sleep(1)
+        sleep(0.5)
