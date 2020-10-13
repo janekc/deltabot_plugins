@@ -201,7 +201,7 @@ def cmd_lyrics(command: IncomingCommand, replies: Replies) -> None:
             soup = bs4.BeautifulSoup(r.text, 'html.parser')
             lyric = soup.find(id='lyric-body-text')
             if lyric:
-                text = '{} - {}\n\n{}'.format(name, artist, lyric.get_text())
+                text = '🎵 {} - {}\n\n{}'.format(name, artist, lyric.get_text())
                 replies.add(text=text)
                 return
 
