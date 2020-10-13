@@ -183,20 +183,25 @@ def cmd_img5(command: IncomingCommand, replies: Replies) -> None:
 def cmd_lyrics(command: IncomingCommand, replies: Replies) -> None:
     """Get song lyrics.
     """
-    url = "https://lyrics.fandom.com/wiki/Special:Search?search={}&fulltext=Search".format(quote(command.payload))
+    base_url = 'https://www.lyrics.com'
+    url = "{}/lyrics/{}".format(base_url, quote(command.payload))
     with requests.get(url, headers=HEADERS) as r:
         r.raise_for_status()
         soup = bs4.BeautifulSoup(r.text, 'html.parser')
-    for li in soup('li', class_='result'):
-        a = li.h1.a
-        name = a.get_text().strip()
-        if ':' in name:
-            with requests.get(a['href'], headers=HEADERS) as r:
-                r.raise_for_status()
-                soup = bs4.BeautifulSoup(r.text, 'html.parser')
-            lyricbox = soup.find('div', class_='lyricbox')
-            if lyricbox:
-                text = '{}\n\n{}'.format(name, html2text(str(lyricbox)))
+    best_matches = soup.find('div', class_='best-matches')
+    a = best_matches and best_matches.a
+    if not a:
+        soup = soup.find('div', class_='sec-lyric')
+        a = soup and soup.a
+    if a:
+        artist, name = map(unquote_plus, a['href'].split('/')[-2:])
+        url = base_url + a['href']
+        with requests.get(url, headers=HEADERS) as r:
+            r.raise_for_status()
+            soup = bs4.BeautifulSoup(r.text, 'html.parser')
+            lyric = soup.find(id='lyric-body-text')
+            if lyric:
+                text = '{} - {}\n\n{}'.format(name, artist, lyric.get_text())
                 replies.add(text=text)
                 return
 
