@@ -70,8 +70,12 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
             replies.add(text='Sorry, maximum number of feeds reached')
             return
         d = feedparser.parse(url)
-        if d.get('bozo') == 1:
+        bozo_exception = d.get('bozo_exception', '')
+        if d.get('bozo') == 1 and not bozo_exception.startswith(
+                'feedparser.exceptions.CharacterEncodingOverride'):
             replies.add(text='Invalid feed url: {}'.format(url))
+            command.bot.logger.waring(
+                'Invalid feed. %s', bozo_exception)
             return
         db.add_feed(url, command.message.chat.id)
         modified = d.get('modified') or d.get('updated')
@@ -80,7 +84,7 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
         title = d.feed.get('title') or '-'
         desc = d.feed.get('description') or '-'
         text = 'Title: {}\n\nURL: {}\n\nDescription: {}\n\n{}'.format(
-            title, url, desc, format_entries(d.entries[-5:]))
+            title, url, desc, format_entries(d.entries[:5]))
         replies.add(text=text)
         return
 
@@ -97,7 +101,7 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
 
     if d.entries and feed['latest']:
         latest = tuple(map(int, feed['latest'].split()))
-        text += format_entries(get_old_entries(d.entries, latest)[-5:])
+        text += format_entries(get_old_entries(d.entries, latest)[:5])
 
     replies.add(text=text)
 
@@ -154,7 +158,10 @@ def _check_feed(f) -> None:
     d = feedparser.parse(
         f['url'], etag=f['etag'], modified=f['modified'])
 
-    if d.get('bozo') == 1:
+    bozo_exception = d.get('bozo_exception', '')
+    if d.get('bozo') == 1 and not bozo_exception.startswith(
+            'feedparser.exceptions.CharacterEncodingOverride'):
+        dbot.logger.waring('Invalid feed. %s', bozo_exception)
         return
 
     if d.entries and f['latest']:
