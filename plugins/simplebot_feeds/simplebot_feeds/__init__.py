@@ -71,11 +71,10 @@ def cmd_sub(command: IncomingCommand, replies: Replies) -> None:
             return
         d = feedparser.parse(url)
         bozo_exception = d.get('bozo_exception', '')
-        if d.get('bozo') == 1 and not bozo_exception.startswith(
-                'feedparser.exceptions.CharacterEncodingOverride'):
+        if d.get('bozo') == 1 and not isinstance(
+                bozo_exception, feedparser.exceptions.CharacterEncodingOverride):
             replies.add(text='Invalid feed url: {}'.format(url))
-            command.bot.logger.waring(
-                'Invalid feed. %s', bozo_exception)
+            command.bot.logger.waring('Invalid feed. %s', bozo_exception)
             return
         db.add_feed(url, command.message.chat.id)
         modified = d.get('modified') or d.get('updated')
@@ -159,8 +158,8 @@ def _check_feed(f) -> None:
         f['url'], etag=f['etag'], modified=f['modified'])
 
     bozo_exception = d.get('bozo_exception', '')
-    if d.get('bozo') == 1 and not bozo_exception.startswith(
-            'feedparser.exceptions.CharacterEncodingOverride'):
+    if d.get('bozo') == 1 and not isinstance(
+            bozo_exception, feedparser.exceptions.CharacterEncodingOverride):
         dbot.logger.waring('Invalid feed. %s', bozo_exception)
         return
 
