@@ -169,7 +169,7 @@ def _check_feed(f) -> None:
     if not d.entries:
         return
 
-    text = format_entries(d.entries[-50:])
+    text = format_entries(d.entries[:50])
     for gid in fchats:
         try:
             dbot.get_chat(gid).send_text(text)
