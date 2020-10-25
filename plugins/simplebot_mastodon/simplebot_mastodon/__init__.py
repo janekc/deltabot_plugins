@@ -1028,8 +1028,6 @@ def _check_home(acc, m: mastodon.Mastodon) -> None:
             db.set_last_home(acc['id'], ts[0].id)
         max_id = ts[-1]
         for t in ts:
-            if t.account.id == me.id:
-                continue
             for a in t.mentions:
                 if a.id == me.id:
                     break
