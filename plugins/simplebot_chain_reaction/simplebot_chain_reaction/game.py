@@ -12,7 +12,6 @@ class Atom(IntEnum):
     WHITE3 = 6
 
 
-NCOLS, NROWS = 9, 6
 COLS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
 ROWS = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭', '🇮']
 ORBS = ['🔳', '🔴', '🟠', '🟡', '🟢', '🟣', '🔵']
@@ -25,11 +24,13 @@ class Board:
             self.fist_round = int(lines.pop(0))
             self.turn = Atom(int(lines.pop(0)))
             self._board = [[Atom(int(e)) for e in ln] for ln in lines]
+            self.nrows, self.ncols,  = len(self._board), len(self._board[0])
         else:
+            self.nrows, self.ncols = 9, 6
             self.fist_round = 2
             self.turn = Atom.BLACK
-            self._board = [[Atom.EMPTY for y in range(NCOLS)]
-                           for x in range(NROWS)]
+            self._board = [[Atom.EMPTY for y in range(self.ncols)]
+                           for x in range(self.nrows)]
 
     def export(self) -> str:
         b = '\n'.join(''.join(
@@ -46,7 +47,7 @@ class Board:
             COLS[1], ORBS[Atom.WHITE2],
             COLS[2], ORBS[Atom.WHITE3])
 
-        text += '|'.join(COLS[:NCOLS]) + '\n'
+        text += '|'.join(COLS[:self.ncols]) + '\n'
         for i, row in enumerate(self._board):
             for d in row:
                 text += ORBS[d] + '|'
@@ -57,7 +58,7 @@ class Board:
         return ORBS[atom]
 
     def is_on_board(self, i: int, j: int) -> bool:
-        return 0 <= i < NROWS and 0 <= j < NCOLS
+        return 0 <= i < self.nrows and 0 <= j < self.ncols
 
     def is_valid_move(self, i: int, j: int) -> bool:
         if not self.is_on_board(i, j):
@@ -84,27 +85,27 @@ class Board:
             i, j = chain.pop(0)
             max_mass = 4
 
-            if i in (0, NROWS - 1):
+            if i in (0, self.nrows - 1):
                 max_mass -= 1
-            if j in (0, NCOLS - 1):
+            if j in (0, self.ncols - 1):
                 max_mass -= 1
 
             mass = self._board[i][j]
             mass = mass + 1 if mass < 4 else mass - 2
-            self._board[i][j] = Atom.EMPTY
 
             if mass < max_mass:
                 self._board[i][j] = Atom(mass + w)
                 if 0 in self.result().values():
                     break
             else:
+                self._board[i][j] = Atom.EMPTY
                 if i > 0:
                     chain.append((i-1, j))
-                if i < NROWS - 1:
+                if i < self.nrows - 1:
                     chain.append((i+1, j))
                 if j > 0:
                     chain.append((i, j-1))
-                if j < NCOLS - 1:
+                if j < self.ncols - 1:
                     chain.append((i, j+1))
 
     def result(self) -> dict:

@@ -82,27 +82,27 @@ def cmd_play(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text="Sorry, I don't want to play")
         return
 
-    p1 = command.message.get_sender_contact().addr
-    p2 = command.payload
+    p1 = command.message.get_sender_contact()
+    p2 = command.bot.get_contact(command.payload)
     if p1 == p2:
         replies.add(text="You can't play with yourself")
         return
 
-    g = db.get_game_by_players(p1, p2)
+    g = db.get_game_by_players(p1.addr, p2.addr)
 
     if g is None:  # first time playing with p2
         b = Board()
         chat = command.bot.create_group(
-            '🧬 {} 🆚 {} [ChainReaction]'.format(p1, p2), [p1, p2])
-        db.add_game(p1, p2, chat.id, Board().export(), p1)
+            '🧬 {} 🆚 {} [ChainReaction]'.format(p1.addr, p2.addr), [p1, p2])
+        db.add_game(p1.addr, p2.addr, chat.id, Board().export(), p1.addr)
         text = 'Hello {1},' \
                'You have been invited by {0} to play Chain Reaction'
         text += '\n\n{2}: {0}\n{3}: {1}\n\n'
         text = text.format(
-            p1, p2, b.get_orb(Atom.BLACK), b.get_orb(Atom.WHITE))
+            p1.name, p2.name, b.get_orb(Atom.BLACK), b.get_orb(Atom.WHITE))
         replies.add(text=text + run_turn(chat.id), chat=chat)
     else:
-        text = 'You already have a game group with {}'.format(p2)
+        text = 'You already have a game group with {}'.format(p2.name)
         replies.add(text=text, chat=command.bot.get_chat(g['gid']))
 
 
@@ -110,31 +110,32 @@ def cmd_surrender(command: IncomingCommand, replies: Replies) -> None:
     """End Chain Reaction game in the group it is sent.
     """
     game = db.get_game_by_gid(command.message.chat.id)
-    loser = command.message.get_sender_contact().addr
-    if game is None or loser not in (game['p1'], game['p2']):
+    loser = command.message.get_sender_contact()
+    if game is None or loser.addr not in (game['p1'], game['p2']):
         replies.add(text='This is not your game group')
     elif game['board'] is None:
         replies.add(text='There is no game running')
     else:
         db.set_board(game['p1'], game['p2'], None)
-        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /chr_new'.format(loser))
+        replies.add(text='🏳️ Game Over.\n{} surrenders.\n\n▶️ Play again? /chr_new'.format(loser.name))
 
 
 def cmd_new(command: IncomingCommand, replies: Replies) -> None:
     """Start a new Chain Reaction game in the current game group.
     """
-    sender = command.message.get_sender_contact().addr
+    sender = command.message.get_sender_contact()
     game = db.get_game_by_gid(command.message.chat.id)
-    if game is None or sender not in (game['p1'], game['p2']):
+    if game is None or sender.addr not in (game['p1'], game['p2']):
         replies.add(text='This is not your game group')
     elif game['board'] is None:
         board = Board()
-        db.set_game(game['p1'], game['p2'], sender, board.export())
+        db.set_game(game['p1'], game['p2'], sender.addr, board.export())
         b = board.get_orb(Atom.BLACK)
         w = board.get_orb(Atom.WHITE)
-        p2 = game['p2'] if sender == game['p1'] else game['p1']
-        text = 'Game started!\n{}: {}\n{}: {}\n\n'.format(
-            b, sender, w, p2)
+        p2 = command.bot.get_contact(
+            game['p2'] if sender.addr == game['p1'] else game['p1'])
+        text = '▶️ Game started!\n{}: {}\n{}: {}\n\n'.format(
+            b, sender.name, w, p2.name)
         replies.add(text=text + run_turn(command.message.chat.id))
     else:
         replies.add(text='There is a game running already')
@@ -171,11 +172,12 @@ def run_turn(gid: int) -> str:
         text += '\n\n▶️ Play again? /chr_new'
     else:
         if b.turn == Atom.BLACK:
-            turn = '{} {}'.format(b.get_orb(b.turn), g['black'])
+            turn = dbot.get_contact(g['black']).name
         else:
-            p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
-            turn = '{} {}'.format(b.get_orb(b.turn), p2)
-        text = "{} it's your turn...\n\n{}".format(turn, board)
+            turn = dbot.get_contact(
+                g['p2'] if g['black'] == g['p1'] else g['p1']).name
+        text = "{} {} it's your turn...\n\n{}".format(
+            b.get_orb(b.turn), turn, board)
     return text
 
 
