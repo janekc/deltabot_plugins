@@ -192,13 +192,12 @@ def cmd_leave(command: IncomingCommand, replies: Replies) -> None:
 
     Example: `/corpse_leave`
     """
-    g = db.get_game_by_gid(command.message.chat.id)
     p = db.get_player_by_addr(command.message.get_sender_contact().addr)
-    if None in (g, p) or p['game'] != g['gid']:
-        replies.add(text='❌ You are not playing Exquisite Corpse here.')
-        return
+    if p:
+        remove_from_game(p, db.get_game_by_gid(p['game']))
+    else:
+        replies.add(text='❌ You are not playing Exquisite Corpse.')
 
-    remove_from_game(p, g)
 
 
 def cmd_status(command: IncomingCommand, replies: Replies) -> None:
@@ -292,3 +291,5 @@ def remove_from_game(player, game) -> None:
         else:
             db.set_turn(player['game'], p['addr'])
             run_turn(p, chat, game['text'])
+    else:
+        chat.send_text(game['gid'], game['turn'])
