@@ -164,10 +164,12 @@ def run_turn(gid: int) -> str:
     if 0 in result.values() and not b.fist_round:
         db.set_board(g['p1'], g['p2'], None)
         if result[Atom.WHITE] == 0:
-            winner = '{} {}'.format(b.get_orb(Atom.BLACK), g['black'])
+            winner = '{} {}'.format(
+                b.get_orb(Atom.BLACK), dbot.get_contact(g['black']).name)
         else:
             p2 = g['p2'] if g['black'] == g['p1'] else g['p1']
-            winner = '{} {}'.format(b.get_orb(Atom.WHITE), p2)
+            winner = '{} {}'.format(
+                b.get_orb(Atom.WHITE), dbot.get_contact(p2).name)
         text = '🏆 Game over.\n{} Wins!!!\n\n{}'.format(winner, board)
         text += '\n\n▶️ Play again? /chr_new'
     else:
