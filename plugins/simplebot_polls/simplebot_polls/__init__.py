@@ -277,7 +277,10 @@ def cmd_end(command: IncomingCommand, replies: Replies) -> None:
             db.end_poll(poll['id'])
             text = format_poll(poll, closed=True)
             for addr in db.get_poll_participants(poll['id']):
-                replies.add(text=text, chat=command.bot.get_chat(addr))
+                contact = command.bot.get_contact(addr)
+                if not contact.is_blocked():
+                    replies.add(
+                        text=text, chat=command.bot.get_chat(contact))
             db.remove_poll_by_id(poll['id'])
         else:
             replies.add(text='Invalid poll id')

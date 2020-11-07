@@ -542,10 +542,12 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
                     replies.add(
                         text='You can not remove me from the group')
                     return
-                g.remove_contact(command.payload)
-                chat = command.bot.get_chat(command.payload)
-                replies.add(text='Removed from {} by {}'.format(
-                    g.get_name(), sender.addr), chat=chat)
+                contact = command.bot.get_contact(command.payload)
+                g.remove_contact(contact)
+                if not contact.is_blocked():
+                    chat = command.bot.get_chat(contact)
+                    replies.add(text='Removed from {} by {}'.format(
+                        g.get_name(), sender.addr), chat=chat)
                 replies.add(text='** {} removed'.format(command.payload))
                 return
             g.remove_contact(sender)
@@ -562,9 +564,10 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
             for c in g.get_contacts():
                 if c.addr == command.payload:
                     g.remove_contact(c)
-                    text = 'Removed from {} by {}'.format(
-                        mg['name'], get_name(sender))
-                    replies.add(text=text, chat=command.bot.get_chat(c))
+                    if not c.is_blocked():
+                        text = 'Removed from {} by {}'.format(
+                            mg['name'], get_name(sender))
+                        replies.add(text=text, chat=command.bot.get_chat(c))
                     replies.add(
                         text='** {} removed'.format(command.payload))
                     return
