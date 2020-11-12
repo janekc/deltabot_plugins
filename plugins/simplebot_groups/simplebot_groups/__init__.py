@@ -28,11 +28,11 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot = bot
     db = get_db(bot)
 
-    getdefault('max_mgroup_size', '20')
-    getdefault('max_group_size', '20')
+    getdefault('max_mgroup_size', '40')
+    getdefault('max_group_size', '999999')
     getdefault('max_topic_size', '500')
     getdefault('allow_groups', '1')
-    getdefault('max_file_size', '204800')  # 200KB
+    getdefault('max_file_size', '504800')
     allow_mgroups = getdefault('allow_mgroups', '1')
     allow_channels = getdefault('allow_channels', '1')
 
@@ -55,11 +55,11 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 
 @deltabot_hookimpl
-def deltabot_member_added(chat: Chat, contact: Contact) -> None:
+def deltabot_member_added(chat: Chat, contact: Contact, actor: Contact) -> None:
     if contact == dbot.self_contact:
         if db.get_mgroup(chat.id) or db.get_channel(chat.id):
             return
-        add_group(chat.id)
+        add_group(chat.id, as_admin=dbot.is_admin(actor.addr))
 
 
 @deltabot_hookimpl
@@ -214,7 +214,8 @@ def cmd_info(command: IncomingCommand, replies: Replies) -> None:
 
     g = db.get_group(command.message.chat.id)
     if not g:
-        add_group(command.message.chat.id)
+        addr = command.message.get_sender_contact().addr
+        add_group(command.message.chat.id, as_admin=dbot.is_admin(addr))
         g = db.get_group(command.message.chat.id)
         assert g is not None
 
@@ -285,7 +286,11 @@ def cmd_me(command: IncomingCommand, replies: Replies) -> None:
     groups = []
     for group in db.get_groups(Status.PUBLIC) + db.get_groups(Status.PRIVATE):
         g = command.bot.get_chat(group['id'])
-        if sender in g.get_contacts():
+        contacts = g.get_contacts()
+        if command.bot.self_contact not in contacts:
+            db.remove_group(group['id'])
+            continue
+        if sender in contacts:
             groups.append((g.get_name(), '/group_remove_g{}'.format(g.id)))
 
     for mg in db.get_mgroups(Status.PUBLIC) + db.get_mgroups(Status.PRIVATE):
@@ -466,20 +471,21 @@ def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
             replies.add(text='Only channel operators can do that.')
             return
 
+        addr = command.message.get_sender_contact().addr
         g = db.get_group(command.message.chat.id)
         if not g:
-            add_group(command.message.chat.id)
+            add_group(command.message.chat.id, as_admin=dbot.is_admin(addr))
             g = db.get_group(command.message.chat.id)
             assert g is not None
         db.set_group_topic(g['id'], new_topic)
-        replies.add(text=text.format(
-            command.message.get_sender_contact().addr, new_topic))
+        replies.add(text=text.format(addr, new_topic))
         return
 
     g = db.get_mgroup(command.message.chat.id) or db.get_channel(
         command.message.chat.id) or db.get_group(command.message.chat.id)
     if not g:
-        add_group(command.message.chat.id)
+        addr = command.message.get_sender_contact().addr
+        add_group(command.message.chat.id, as_admin=dbot.is_admin(addr))
         g = db.get_group(command.message.chat.id)
         assert g is not None
     replies.add(text='Topic:\n{}'.format(g['topic']))
@@ -642,8 +648,8 @@ def get_cchats(cgid: int, include_admin: bool = False) -> Generator:
                 db.remove_channel(cgid)
 
 
-def add_group(gid: int) -> None:
-    if getdefault('allow_groups') == '1':
+def add_group(gid: int, as_admin=False) -> None:
+    if as_admin or getdefault('allow_groups') == '1':
         db.add_group(gid, generate_pid(), None, Status.PUBLIC)
     else:
         dbot.get_chat(gid).remove_contact(dbot.self_contact)
