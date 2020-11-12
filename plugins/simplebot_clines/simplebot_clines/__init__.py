@@ -195,13 +195,17 @@ def run_turn(gid: int) -> str:
     assert g is not None
     b = Board(g['board'])
     if b.result() == 1:
-        if b.score > b.old_score:
-            db.set_game(g['addr'], None, b.score)
-            text = '🏆 Game over\n📊 New High Score: {}\n/lines_top\n\n{}'
+        if b.old_score >= b.score > b.old_score/2:
+            score = b.old_score + 1
+        else:
+            score = b.score
+        if score > b.old_score:
+            db.set_game(g['addr'], None, score)
+            text = '🏆 Game over\nNew High Score: {}\n📊 /lines_top\n\n{}'
         else:
             db.set_board(g['addr'], None)
             text = '☠️ Game over\n📊 Score: {}\n\n {}'
-        text = text.format(b.score, b)
+        text = text.format(score, b)
         text += '\n▶️ Play again?  /lines_play'
         return text
     else:
