@@ -178,17 +178,16 @@ def run_turn(gid: int) -> str:
     b = Board(g['board'])
     result = b.result()
     if result == 1:
-        score = b.get_score()
+        now = time.time()
+        score = b.get_score(now)
         text = '🏆 Game over. You Win!!!\n'
-        if score > g['score']:
-            db.set_game(g['addr'], None, score)
-            text += '📊 New High Score: {}\n/mines_top'.format(score)
-        else:
-            db.set_board(g['addr'], None)
-            text += '📊 Score: {}\n/mines_top'.format(score)
+        if score <= g['score']:
+            score = g['score'] + 1
+        db.set_game(g['addr'], None, score)
+        text += 'New High Score: {}\n📊 /mines_top'.format(score)
     elif result == -1:
         db.set_board(g['addr'], None)
-        text = '☠️ Game over. You died.\n/mines_top'
+        text = '☠️ Game over. You died.\n📊 /mines_top'
     else:
         return str(b)
     text += '\n\n{}\n▶️ Play again? /mines_play'.format(b.reveal(result))

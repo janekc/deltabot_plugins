@@ -49,13 +49,13 @@ class Board:
                     if n != MINE:
                         self._board[i][j] = HIDDEN
 
-    def get_score(self) -> float:
+    def get_score(self, date: int) -> float:
         mines = 0
         for row in self._board:
             for cell in row:
                 if cell == MINE:
                     mines += 1
-        return round(mines/(time.time() - self.date) * 10**4, 2) or 1
+        return round(mines/(date - self.date) * 10**4, 2) or 1
 
     def export(self) -> str:
         board = str(self.date) + '\n'
