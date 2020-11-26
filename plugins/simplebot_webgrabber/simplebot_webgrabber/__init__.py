@@ -464,6 +464,9 @@ def download_file(url: str, mode: str = 'htmlzip',
             if mode == 'md':
                 return dict(text=r.url,
                             filename=save_file(html2text(html), '.md'))
+            if mode == 'html':
+                return dict(text=r.url,
+                            filename=save_file(html, '.html'))
             return dict(text=r.url, filename=save_htmlzip(html))
         data, ext = process_file(r)
         return dict(text=r.url, filename='web'+(ext or ''),
