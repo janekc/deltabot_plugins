@@ -2,6 +2,7 @@
 from threading import Thread
 from typing import Generator
 from time import sleep
+import io
 import os
 import random
 import string
@@ -13,6 +14,8 @@ from deltabot import DeltaBot
 from deltabot.bot import Replies
 from deltabot.commands import IncomingCommand
 from deltachat import Chat, Contact, Message
+
+import qrcode
 
 
 version = '1.0.0'
@@ -186,30 +189,20 @@ def cmd_info(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='This is not a group')
         return
 
-    text = '{} Status: {}\nTopic: {}\n\n'
-    text += 'Leave: /group_remove\nInvite: /group_join_{}'
+    text = '{} Name: {}\nTopic: {}\n\n'
+    text += 'Leave: /group_remove\nJoin: /group_join_{}'
     mg = db.get_mgroup(command.message.chat.id)
     if mg:
         type_ = 'Mega-Group'
-        if mg['status'] == Status.PUBLIC:
-            status = 'Public'
-            gid = 'm{}'.format(mg['id'])
-        else:
-            status = 'Private'
-            gid = 'm{}_{}'.format(mg['id'], mg['pid'])
-        replies.add(text=text.format(type_, status, mg['topic'], gid))
+        gid = 'm{}'.format(mg['id'])
+        replies.add(text=text.format(type_, mg['name'], mg['topic'], gid))
         return
 
     ch = db.get_channel(command.message.chat.id)
     if ch:
         type_ = 'Channel'
-        if ch['status'] == Status.PUBLIC:
-            status = 'Public'
-            gid = 'c{}'.format(ch['id'])
-        else:
-            status = 'Private'
-            gid = 'c{}_{}'.format(ch['id'], ch['pid'])
-        replies.add(text=text.format(type_, status, ch['topic'], gid))
+        gid = 'c{}'.format(ch['id'])
+        replies.add(text=text.format(type_, ch['name'], ch['topic'], gid))
         return
 
     g = db.get_group(command.message.chat.id)
@@ -220,13 +213,14 @@ def cmd_info(command: IncomingCommand, replies: Replies) -> None:
         assert g is not None
 
     type_ = 'Group'
-    if g['status'] == Status.PUBLIC:
-        status = 'Public'
-        gid = 'g{}'.format(g['id'])
-    else:
-        status = 'Private'
-        gid = 'g{}_{}'.format(g['id'], g['pid'])
-    replies.add(text=text.format(type_, status, g['topic'], gid))
+    gid = 'g{}'.format(g['id'])
+    chat = dbot.get_chat(g['id'])
+    img = qrcode.make(chat.get_join_qr())
+    buffer = io.BytesIO()
+    img.save(buffer, format='jpeg')
+    buffer.seek(0)
+    replies.add(text=text.format(type_, chat.get_name(), g['topic'], gid),
+                filename='img.jpg', bytefile=buffer)
 
 
 def cmd_list(command: IncomingCommand, replies: Replies) -> None:
