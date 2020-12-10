@@ -97,13 +97,13 @@ def deltabot_member_removed(chat: Chat, contact: Contact,
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies) -> None:
+def filter_messages(message: Message, replies: Replies):
     """Process messages sent to a Mastodon chat.
     """
     acc = db.get_account_by_home(message.chat.id)
     if acc:
         toot(get_session(acc), message.text, message.filename)
-        return
+        return True
 
     pchat = db.get_pchat(message.chat.id)
     if pchat:
@@ -111,6 +111,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
         text = '@{} {}'.format(pchat['contact'], message.text)
         toot(get_session(acc), text, message.filename,
              visibility=Visibility.DIRECT)
+        return True
 
 
 # ======== Commands ===============

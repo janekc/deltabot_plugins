@@ -46,7 +46,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies) -> None:
+def filter_messages(message: Message, replies: Replies):
     """Process move coordinates in Connect4 game groups
     """
     if message.text not in '1234567':
@@ -64,6 +64,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
             replies.add(text=run_turn(message.chat.id))
         else:
             replies.add(text='❌ Invalid move!')
+        return True
 
 
 # ======== Commands ===============

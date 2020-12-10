@@ -53,7 +53,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact,
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies) -> None:
+def filter_messages(message: Message, replies: Replies):
     """Process turns in Exquisite Corpse game groups
     """
     if not message.chat.is_group():
@@ -85,6 +85,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
             else:
                 db.set_turn(g['gid'], p['addr'])
                 run_turn(p, dbot.get_chat(g['gid']), paragraph)
+        return True
 
 
 # ======== Commands ===============

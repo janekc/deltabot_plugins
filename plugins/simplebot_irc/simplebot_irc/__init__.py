@@ -73,7 +73,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies) -> None:
+def filter_messages(message: Message, replies: Replies):
     """Process messages sent to an IRC channel.
     """
     chan = db.get_channel_by_gid(message.chat.id)
@@ -93,6 +93,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
     for g in get_cchats(chan):
         if g.id != message.chat.id:
             replies.add(text=text, chat=g)
+    return True
 
 
 # ======== Commands ===============

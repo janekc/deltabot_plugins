@@ -48,7 +48,7 @@ def deltabot_member_removed(chat: Chat, contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies) -> None:
+def filter_messages(message: Message, replies: Replies):
     """Process move coordinates in Minesweeper game groups.
     """
     if len(message.text) != 2 or not message.text.isalnum() or message.text.isalpha() or message.text.isdigit():
@@ -66,6 +66,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
     except ValueError as err:
         dbot.logger.exception(err)
         replies.add(text='❌ Invalid move!')
+    return True
 
 
 # ======== Commands ===============
