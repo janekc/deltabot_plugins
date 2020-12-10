@@ -26,6 +26,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     global dbot
     dbot = bot
     getdefault('learn', '1')
+    getdefault('reply_to_dash', '1')
 
     bot.filters.register(name=__name__, func=filter_messages)
 
@@ -85,8 +86,9 @@ def filter_messages(message: Message, replies: Replies) -> None:
     name = dbot.account.get_config('displayname')
     quote = message.quote
 
+    reply_to_dash = getdefault('reply_to_dash', '1') in ('0', 'no')
     resp = None
-    if message.text.startswith('#') and len(message.text) > 1:
+    if reply_to_dash and message.text.startswith('#') and len(message.text) > 1:
         resp = cbot.get_response(message.text[1:])
     elif not message.chat.is_group() or (
             quote and quote.get_sender_contact() == me):
