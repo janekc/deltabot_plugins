@@ -429,10 +429,6 @@ def get_db(bot) -> DBManager:
     return DBManager(os.path.join(path, 'sqlite.db'))
 
 
-def rmprefix(text: str, prefix: str) -> str:
-    return text[text.startswith(prefix) and len(prefix):]
-
-
 def get_cchats(cgid: int, include_admin: bool = False) -> Generator:
     for gid in db.get_cchats(cgid):
         g = dbot.get_chat(gid)
