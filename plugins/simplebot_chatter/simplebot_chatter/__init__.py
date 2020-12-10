@@ -35,15 +35,7 @@ def deltabot_init(bot: DeltaBot) -> None:
 @deltabot_hookimpl
 def deltabot_start(bot: DeltaBot) -> None:
     global cbot, list_trainer
-    read_oly = getdefault('learn', '1') in ('0', 'no')
-    cbot = ChatBot(
-        dbot.self_contact.addr,
-        storage_adapter='chatterbot.storage.SQLStorageAdapter',
-        database_uri=get_db_uri(bot),
-        read_oly=read_oly,
-    )
-    list_trainer = ListTrainer(cbot)
-    trainer = ChatterBotCorpusTrainer(cbot)
+
     locale = bot.get('locale') or 'en'
     corpus = dict(
         es='spanish',
@@ -62,6 +54,22 @@ def deltabot_start(bot: DeltaBot) -> None:
             'ahí dice ta-ba-co',
             'eso habría que verlo compay',
         ])
+    cbot = ChatBot(
+        dbot.self_contact.addr,
+        storage_adapter='chatterbot.storage.SQLStorageAdapter',
+        database_uri=get_db_uri(bot),
+        read_oly=getdefault('learn', '1') in ('0', 'no'),
+        logic_adapters= [
+            'chatterbot.logic.MathematicalEvaluation',
+            {
+                'import_path': 'chatterbot.logic.BestMatch',
+                'default_response': default_replies,
+                'maximum_similarity_threshold': 0.9,
+            }
+        ],
+    )
+    list_trainer = ListTrainer(cbot)
+    trainer = ChatterBotCorpusTrainer(cbot)
     trainer.train('chatterbot.corpus.' + corpus.get(locale, 'english'))
 
 
