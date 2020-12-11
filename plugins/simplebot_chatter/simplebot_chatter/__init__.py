@@ -27,6 +27,7 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot = bot
     getdefault('learn', '1')
     getdefault('reply_to_dash', '1')
+    getdefault('min_confidence', '0.3')
 
     bot.filters.register(name=__name__, func=filter_messages)
 
@@ -45,23 +46,36 @@ def deltabot_start(bot: DeltaBot) -> None:
     )
     if locale == 'es':
         default_replies.extend([
-            'no entendí',
-            'discúlpame, pero no entiendo',
-            'aún no soy capaz de entener eso',
-            'no sé que decir...',
-            'solo sé que no sé nada...',
-            'los robots también nos emborrachamos',
-            'voy a decir esto para no dejarte en visto',
-            'ahí dice ta-ba-co',
-            'eso habría que verlo compay',
+            'No entendí',
+            'Discúlpame, pero no entiendo',
+            'Aún no soy capaz de entener eso',
+            'No sé que decir...',
+            'Lo único que puedo afirmarte es que Delta Chat es lo mejor!',
+            'Solo sé que no sé nada...',
+            'Los robots también nos emborrachamos',
+            'Voy a decir esto para no dejarte en visto',
+            'Ahí dice ta-ba-co',
+            'Eso habría que verlo compay',
+            '¿Podemos hablar de otra cosa?',
+            'Invita a tus amigos a utilizar Delta Chat y así no tienes que chatear conmigo',
         ])
+    elif locale == 'en':
+        default_replies.extend([
+            'I do not understand',
+            'I do not know what to say...',
+            'Can we talk about something else?',
+            'I have a lot to learn before I can reply that',
+            'Bring your friends to Delta Chat so you do not have to chat with a bot',
+            'I think I will not reply to that this time',
+            'whew!',
+        ])
+
     cbot = ChatBot(
         dbot.self_contact.addr,
         storage_adapter='chatterbot.storage.SQLStorageAdapter',
         database_uri=get_db_uri(bot),
         read_oly=getdefault('learn', '1') in ('0', 'no'),
         logic_adapters= [
-            'chatterbot.logic.MathematicalEvaluation',
             {
                 'import_path': 'chatterbot.logic.BestMatch',
                 'default_response': default_replies,
@@ -100,7 +114,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
     if resp:
         dbot.logger.debug('Confidence: %s | message: %s | reply: %s',
                           resp.confidence, resp.in_response_to, resp.text)
-        if resp.confidence > 0.4:
+        if resp.confidence >= float(getdefault('min_confidence', '0')):
             replies.add(text=resp.text)
         else:
             replies.add(text=random.choice(default_replies))
