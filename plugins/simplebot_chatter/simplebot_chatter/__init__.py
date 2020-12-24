@@ -74,7 +74,7 @@ def deltabot_start(bot: DeltaBot) -> None:
         dbot.self_contact.addr,
         storage_adapter='chatterbot.storage.SQLStorageAdapter',
         database_uri=get_db_uri(bot),
-        read_oly=getdefault('learn', '1') in ('0', 'no'),
+        read_oly=getdefault('learn', '1') == '0',
         logic_adapters= [
             {
                 'import_path': 'chatterbot.logic.BestMatch',
@@ -119,7 +119,7 @@ def filter_messages(message: Message, replies: Replies) -> None:
         else:
             replies.add(text=random.choice(default_replies))
 
-    if quote and quote.text:
+    if quote and quote.text and getdefault('learn') == '1':
         cbot.learn_response(
             Statement(text=message.text, in_response_to=quote.text))
 
