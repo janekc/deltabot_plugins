@@ -23,6 +23,9 @@ def deltabot_init(bot: DeltaBot) -> None:
     global dbot, db
     dbot = bot
     db = get_db(bot)
+
+    bot.filters.register(name=__name__, func=filter_messages)
+
     bot.commands.register(name="/scoreSet", func=cmd_set, admin=True)
     bot.commands.register(name="/score", func=cmd_score)
 

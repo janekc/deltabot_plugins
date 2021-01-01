@@ -20,4 +20,4 @@ class DBManager:
     def set_score(self, addr: str, score: int) -> None:
         with self.db:
             self.db.execute(
-                'REPLACE INTO score VALUES (?,?)', (addr, score))
+                'REPLACE INTO scores VALUES (?,?)', (addr, score))
