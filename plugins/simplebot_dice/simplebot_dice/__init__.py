@@ -5,6 +5,7 @@ from deltabot.bot import Replies
 from deltabot.commands import IncomingCommand
 from deltabot.hookspec import deltabot_hookimpl
 
+from deltachat import Message
 
 version = '1.0.0'
 DICES = ('⚀', '⚁', '⚂', '⚃', '⚄', '⚅')
@@ -20,26 +21,29 @@ def deltabot_init(bot: DeltaBot) -> None:
 def cmd_dice(command: IncomingCommand, replies: Replies) -> None:
     """Roll a dice.
     """
-    _roll_dice(int(command.payload or 1), replies)
+    _roll_dice(int(command.payload or 1), command)
 
 
 def cmd_dice2(command: IncomingCommand, replies: Replies) -> None:
     """Roll two dices.
     """
-    _roll_dice(2, replies)
+    _roll_dice(2, command)
 
 
 def cmd_dice5(command: IncomingCommand, replies: Replies) -> None:
     """Roll five dices.
     """
-    _roll_dice(5, replies)
+    _roll_dice(5, command)
 
 
-def _roll_dice(count: int, replies: Replies) -> None:
+def _roll_dice(count: int, command: IncomingCommand) -> None:
     dices = []
     total = 0
     for i in range(count):
         rand = random.randint(0, 6)
         total += rand + 1
         dices.append(DICES[rand])
-    replies.add(text='{} ({})'.format(' '.join(dices), total))
+    msg = Message.new_empty(command.bot.account, 'text')
+    msg.quote = command.message
+    msg.set_text('{} ({})'.format(' '.join(dices), total))
+    command.message.chat.send_msg(msg)
