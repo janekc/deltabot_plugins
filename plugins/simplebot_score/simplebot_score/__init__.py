@@ -81,4 +81,4 @@ def _set_score(addr: str, score: str, replies: Replies) -> None:
         return
 
     db.set_score(addr, new_score)
-    replies.add(text='{} has {} points.'.format(addr, new_score))
+    replies.add(text='{} has {} points.'.format(dbot.get_contact(addr).name, new_score))
