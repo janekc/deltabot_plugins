@@ -59,7 +59,8 @@ def filter_messages(message: Message, replies: Replies) -> None:
 
     acc = db.get_account(chat['account'])
     client = wf.client(host=acc['host'], token=acc['token'])
-    post = client.publish(blog=chat['blog'], title=title, body=body)
+    post = client.create_post(
+        collection=chat['blog'], title=title, body=body)
     replies.add(text=post['collection']['url'] + post['slug'])
 
 
@@ -74,11 +75,11 @@ def cmd_login(command: IncomingCommand, replies: Replies) -> None:
     sender = command.message.get_sender_contact()
     args = command.payload.split(maxsplit=2)
     if len(args) == 3:
-        c = wf.client(host=args[0], user=args[1], password=args[2])
+        client = wf.client(host=args[0], user=args[1], password=args[2])
     else:
-        c = wf.client(host=args[0], token=args[1])
-    db.add_account(sender.addr, c.host, c.token)
-    for blog in c.get_blogs():
+        client = wf.client(host=args[0], token=args[1])
+    db.add_account(sender.addr, client.host, client.token)
+    for blog in client.get_collections():
         g = command.bot.create_group(
             '{} [WF]'.format(blog['title'] or blog['alias']), [sender])
         db.add_chat(g.id, blog['alias'], sender.addr)
