@@ -98,7 +98,7 @@ def deltabot_ban(contact: Contact) -> None:
 
 # ======== Filters ===============
 
-def filter_messages(message: Message, replies: Replies):
+def filter_messages(message: Message, replies: Replies) -> None:
     """Process messages sent to channels.
     """
     ch = db.get_channel(message.chat.id)
@@ -106,7 +106,7 @@ def filter_messages(message: Message, replies: Replies):
         max_size = int(getdefault('max_file_size'))
         if message.filename and os.path.getsize(message.filename) > max_size:
             replies.add(text='❌ File too big, up to {} Bytes are allowed'.format(max_size))
-            return True
+            return
 
         db.set_channel_last_pub(ch['id'], time.time())
         name = get_name(message.get_sender_contact())
@@ -114,10 +114,8 @@ def filter_messages(message: Message, replies: Replies):
 
         args = (text, message.filename, get_cchats(ch['id']))
         Thread(target=send_diffusion, args=args, daemon=True).start()
-        return True
-    if ch:
+    elif ch:
         replies.add(text='❌ Only channel operators can do that.')
-        return True
 
 
 # ======== Commands ===============
