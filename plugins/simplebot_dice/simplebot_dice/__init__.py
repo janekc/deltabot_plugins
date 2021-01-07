@@ -40,7 +40,7 @@ def _roll_dice(count: int, command: IncomingCommand) -> None:
     dices = []
     total = 0
     for i in range(count):
-        rand = random.randint(0, 6)
+        rand = random.randrange(0, 6)
         total += rand + 1
         dices.append(DICES[rand])
     msg = Message.new_empty(command.bot.account, 'text')
