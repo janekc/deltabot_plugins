@@ -12,12 +12,19 @@ class DBManager:
                 (addr TEXT PRIMARY KEY,
                 score INTEGER NOT NULL DEFAULT 0)''')
 
-    def get_score(self, addr: str) -> int:
-        row = self.db.execute(
-            'SELECT score FROM scores WHERE addr=?', (addr,)).fetchone()
-        return row[0] if row else 0
+    def get_score(self, addr: str = None) -> int:
+        if addr:
+            row = self.db.execute(
+                'SELECT score FROM scores WHERE addr=?', (addr,)).fetchone()
+            return row[0] if row else 0
+        return sum(r[0] for r in self.db.execute(
+            'SELECT score FROM scores WHERE score>0').fetchall())
 
     def set_score(self, addr: str, score: int) -> None:
         with self.db:
             self.db.execute(
                 'REPLACE INTO scores VALUES (?,?)', (addr, score))
+
+    def delete_score(self, addr: str) -> None:
+        with self.db:
+            self.db.execute('DELETE FROM scores WHERE addr=?', (addr,))

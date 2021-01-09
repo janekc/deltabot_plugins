@@ -58,7 +58,8 @@ def cmd_score(command: IncomingCommand, replies: Replies) -> None:
     Example: `/score`
     """
     addr = command.payload if command.payload else command.message.get_sender_contact().addr
-    replies.add(text='{} has {} points.'.format(addr, db.get_score(addr)))
+    replies.add(text='{}: {}🎖️\nFrom: {}🎖️'.format(
+        addr, db.get_score(addr), db.get_score()))
 
 
 # ======== Utilities ===============
@@ -71,14 +72,17 @@ def get_db(bot) -> DBManager:
 
 
 def _set_score(addr: str, score: str, replies: Replies) -> None:
-    new_score = db.get_score(addr)
+    old_score = db.get_score(addr)
     if score[0] == '+':
-        new_score += int(score[1:])
+        new_score = old_score + int(score[1:])
     elif score[0] == '-':
-        new_score -= int(score[1:])
+        new_score = old_score - int(score[1:])
     else:
         replies.add(text='❌ Invalid operand, use + or -')
         return
 
-    db.set_score(addr, new_score)
-    replies.add(text='{} has {} points.'.format(dbot.get_contact(addr).name, new_score))
+    if new_score != 0:
+        db.set_score(addr, new_score)
+    elif old_score != 0:
+        db.delete_score(addr)
+    replies.add(text='{}: {}🎖️'.format(dbot.get_contact(addr).name, new_score))
