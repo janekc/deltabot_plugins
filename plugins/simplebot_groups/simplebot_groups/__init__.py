@@ -367,8 +367,6 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
         for g in get_cchats(ch['id'], include_admin=True):
             if sender in g.get_contacts():
                 g.remove_contact(sender)
-                replies.add(
-                    text='✔️Removed from "{}"'.format(ch['name']))
                 return
         else:
             replies.add(
@@ -397,7 +395,6 @@ def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
             replies.add(text='✔️{} removed'.format(addr))
         else:
             g.remove_contact(sender)
-            replies.add(text='✔️Removed from "{}"'.format(g.get_name()))
 
 
 def cmd_chan(command: IncomingCommand, replies: Replies) -> None:
