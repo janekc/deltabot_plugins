@@ -430,12 +430,6 @@ def get_db(bot) -> DBManager:
 
 
 def get_cchats(cgid: int, include_admin: bool = False) -> Generator:
-    for gid in db.get_cchats(cgid):
-        g = dbot.get_chat(gid)
-        if g and dbot.self_contact in g.get_contacts():
-            yield g
-        else:
-            db.remove_cchat(gid)
     if include_admin:
         ch = db.get_channel_by_id(cgid)
         if ch:
@@ -444,6 +438,12 @@ def get_cchats(cgid: int, include_admin: bool = False) -> Generator:
                 yield g
             else:
                 db.remove_channel(cgid)
+    for gid in db.get_cchats(cgid):
+        g = dbot.get_chat(gid)
+        if g and dbot.self_contact in g.get_contacts():
+            yield g
+        else:
+            db.remove_cchat(gid)
 
 
 def add_group(gid: int, as_admin=False) -> None:
