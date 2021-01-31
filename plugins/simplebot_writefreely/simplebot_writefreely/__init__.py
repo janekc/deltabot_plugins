@@ -26,8 +26,8 @@ def deltabot_init(bot: DeltaBot) -> None:
 
     bot.filters.register(name=__name__, func=filter_messages)
 
-    bot.commands.register(name="/wf_login", func=cmd_login, admin=True)
-    bot.commands.register(name="/wf_logout", func=cmd_logout, admin=True)
+    bot.commands.register(name="/wf_login", func=cmd_login)
+    bot.commands.register(name="/wf_logout", func=cmd_logout)
     bot.commands.register(name="/wf_bridge", func=cmd_bridge, admin=True)
     bot.commands.register(name="/wf_unbridge", func=cmd_unbridge, admin=True)
 
@@ -47,7 +47,6 @@ def filter_messages(message: Message, replies: Replies) -> None:
     """
     chat = db.get_chat(message.chat.id)
     if not chat or not message.text:
-        dbot.logger.debug('Ignoring message, not a WriteFreely chat.')
         return
 
     if message.text.startswith('# '):
@@ -110,7 +109,7 @@ def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
         return
 
     client = wf.client(host=acc['host'], token=acc['token'])
-    blogs = [blog['alias'] for blog in client.get_blogs()]
+    blogs = [blog['alias'] for blog in client.get_posts()]
     if command.payload not in blogs:
         replies.add(
             text='❌ Invalid blog name, your blogs:\n{}'.format('\n'.join(blogs)))
