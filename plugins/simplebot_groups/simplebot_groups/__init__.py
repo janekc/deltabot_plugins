@@ -127,13 +127,15 @@ def cmd_info(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='❌ This is not a group')
         return
 
-    text = '{0} Name: {1}\nTopic: {2}\n\n'
+    text = '{0}\n👤 {1}\nTopic: {2}\n\n'
     text += 'Leave: /group_remove_{3}{4}\nJoin: /group_join_{3}{4}'
 
     ch = db.get_channel(command.message.chat.id)
     if ch:
+        count = sum(map(
+            lambda g: len(g.get_contacts()) - 1, get_cchats(ch['id'])))
         replies.add(text=text.format(
-            'Channel', ch['name'], ch['topic'], 'c', ch['id']))
+            ch['name'], count, ch['topic'] or '-', 'c', ch['id']))
         return
 
     g = db.get_group(command.message.chat.id)
@@ -148,8 +150,9 @@ def cmd_info(command: IncomingCommand, replies: Replies) -> None:
     buffer = io.BytesIO()
     img.save(buffer, format='jpeg')
     buffer.seek(0)
+    count = len(dbot.get_chat(g['id']).get_contacts())
     replies.add(text=text.format(
-        'Group', chat.get_name(), g['topic'], 'g', g['id']),
+        chat.get_name(), count, g['topic'] or '-', 'g', g['id']),
                 filename='img.jpg', bytefile=buffer)
 
 
