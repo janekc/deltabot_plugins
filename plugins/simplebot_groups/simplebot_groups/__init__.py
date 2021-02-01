@@ -127,8 +127,8 @@ def cmd_info(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='❌ This is not a group')
         return
 
-    text = '{0}\n👤 {1}\nTopic: {2}\n\n'
-    text += 'Leave: /group_remove_{3}{4}\nJoin: /group_join_{3}{4}'
+    text = '{0}\n👤 {1}\n{2}\n\n'
+    text += '⬅️ /group_remove_{3}{4}\n➡️ /group_join_{3}{4}'
 
     ch = db.get_channel(command.message.chat.id)
     if ch:
@@ -161,9 +161,9 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
     """
     def get_list(groups, chan_mode=False):
         if chan_mode:
-            fmt = '{0}:\n👤 {4}\nLast Post: {3}\nTopic: {1}\nJoin: {2}\n\n'
+            fmt = '{0}:\n👤 {4}\n📝 {3}\n{1}\n➡️ {2}\n\n'
         else:
-            fmt = '{0}:\n👤 {3}\nTopic: {1}\nJoin: {2}\n\n'
+            fmt = '{0}:\n👤 {3}\n{1}\n➡️ {2}\n\n'
         return '―――――――――――――――\n\n'.join(fmt.format(*g) for g in groups)
 
     groups = []
@@ -172,7 +172,7 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
         if not chat:
             db.remove_group(g['id'])
             continue
-        groups.append((chat.get_name(), g['topic'],
+        groups.append((chat.get_name(), g['topic'] or '-',
                        '/group_join_g{}'.format(chat.id),
                        len(chat.get_contacts())))
     total_groups = len(groups)
@@ -194,7 +194,7 @@ def cmd_list(command: IncomingCommand, replies: Replies) -> None:
                 '%d-%m-%Y', time.gmtime(ch['last_pub']))
         else:
             last_pub = '-'
-        channels.append((ch['name'], ch['topic'],
+        channels.append((ch['name'], ch['topic'] or '-',
                          '/group_join_c{}'.format(ch['id']), last_pub, count))
     total_channels = len(channels)
     if channels:
@@ -232,7 +232,7 @@ def cmd_me(command: IncomingCommand, replies: Replies) -> None:
                     (ch['name'], 'c{}'.format(ch['id'])))
                 break
 
-    text = '{0}:\nLeave: /group_remove_{1}\n\n'
+    text = '{0}:\n⬅️ /group_remove_{1}\n\n'
     replies.add(text=''.join(
         text.format(*g) for g in groups) or 'Empty list')
 
@@ -242,7 +242,7 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
     """
     sender = command.message.get_sender_contact()
     is_admin = command.bot.is_admin(sender.addr)
-    text = '✔️Added to {}\n\nTopic: {}\n\nLeave: /group_remove_{}'
+    text = '{}\n\n{}\n\n⬅️ /group_remove_{}'
     if command.payload.startswith('g'):
         gid = int(command.args[0][1:])
         gr = db.get_group(gid)
@@ -254,8 +254,8 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
                     text='❌ {}, you are already a member of this group'.format(sender.addr), chat=g)
             elif len(contacts) < int(getdefault('max_group_size')) or is_admin:
                 add_contact(g, sender)
-                replies.add(text=text.format(
-                    g.get_name(), gr['topic'], command.payload))
+                replies.add(chat=dbot.get_chat(sender), text=text.format(
+                    g.get_name(), gr['topic'] or '-', command.payload))
             else:
                 replies.add(text='❌ Group is full')
             return
@@ -278,7 +278,7 @@ def cmd_join(command: IncomingCommand, replies: Replies) -> None:
             g = command.bot.create_group(ch['name'], [sender])
             db.add_cchat(g.id, ch['id'])
             replies.add(text=text.format(
-                ch['name'], ch['topic'], command.payload), chat=g)
+                ch['name'], ch['topic'] or '-', command.payload), chat=g)
             return
 
     replies.add(text='❌ Invalid ID')
@@ -288,13 +288,13 @@ def cmd_adminchan(command: IncomingCommand, replies: Replies) -> None:
     """Join the admin group of the given channel.
     """
     sender = command.message.get_sender_contact()
-    text = '✔️Added to {}\n\nTopic: {}\n\nLeave: /group_remove_{}'
+    text = '{}\n\n{}\n\n⬅️ /group_remove_{}'
     gid = int(command.args[0])
     ch = db.get_channel_by_id(gid)
     if ch:
         add_contact(dbot.get_chat(ch['admin']), sender)
-        text = text.format(ch['name'], ch['topic'], command.payload)
-        replies.add(text=text)
+        text = text.format(ch['name'], ch['topic'] or '-', command.payload)
+        replies.add(text=text, chat=dbot.get_chat(sender))
         return
 
     replies.add(text='❌ Invalid ID')
@@ -345,7 +345,7 @@ def cmd_topic(command: IncomingCommand, replies: Replies) -> None:
         add_group(command.message.chat.id, as_admin=dbot.is_admin(addr))
         g = db.get_group(command.message.chat.id)
         assert g is not None
-    replies.add(text='Topic:\n{}'.format(g['topic']))
+    replies.add(text=g['topic'] or '-', quote=command.message)
 
 
 def cmd_remove(command: IncomingCommand, replies: Replies) -> None:
