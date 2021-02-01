@@ -109,7 +109,7 @@ def cmd_bridge(command: IncomingCommand, replies: Replies) -> None:
         return
 
     client = wf.client(host=acc['host'], token=acc['token'])
-    blogs = [blog['alias'] for blog in client.get_posts()]
+    blogs = [blog['alias'] for blog in client.get_collections()]
     if command.payload not in blogs:
         replies.add(
             text='❌ Invalid blog name, your blogs:\n{}'.format('\n'.join(blogs)))
