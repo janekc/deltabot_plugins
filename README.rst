@@ -1,50 +1,74 @@
-Incubator for experimental SimpleBot plugins
+Deltabot Plugins
+================
+
+An extensible Delta Chat bot.
+
+Quick Start: Running a bot+plugins in 7 steps
+---------------------------------------------
+
+1. Declare bot email address and password::
+
+     $ ADDR='bot@example.com'
+     $ PASSWORD='myPassword'
+
+2. Create and activate virtual environment (Optional but recommended)::
+
+     $ python3 -m venv ~/deltabot/venvs`echo $ADDR|tr "@" "_"`
+     $ source ~/deltabot/venvs/`echo $ADDR|tr "@" "_"`/bin/activate
+     $ pip3 install -U pip wheel
+
+3. Install deltachat's python bindings as package or by compiling deltachat-core-rust::
+
+     $ pip3 install -U -i https://m.devpi.net/dc/master deltachat
+     $ # or
+     $ curl https://sh.rustup.rs -sSf | sh
+     $ git clone https://github.com/deltachat/deltachat-core-rust
+     $ cd deltachat-core-rust/python
+     $ python install_python_bindings.py
+
+4. Install simplebot::
+
+     $ cd ~
+     $ git clone https://github.com/simplebot-inc/simplebot
+     $ pip3 install ./simplebot
+
+5. Install some plugins::
+
+     $ cd ~
+     $ git clone https://github.com/janekc/deltabot_plugins/
+     $ python3 deltabot_plugins/scripts/install_plugin.py
+
+6. Configure bot::
+
+     $ simplebot --basedir ~/deltabot/botdata/`echo $ADDR|tr "@" "_"` init $ADDR "$PASSWORD"
+
+7. Start the bot::
+
+     $ simplebot --basedir ~/deltabot/botdata/`echo $ADDR|tr "@" "_"` serve
 
 
 Plugins
 -------
 
-Bridges
-~~~~~~~
+SimpleBot is a bit useless without plugins, for official plugins see:
 
-- **FB Messenger:** Facebook Messenger bridge.
-- **IRC Bridge:** A bridge between Delta Chat and a configurable IRC server.
-- **Mastodon Bridge:** A bridge between Delta Chat and `Mastodon <https://joinmastodon.org/>`_ network.
-- **XMPP Bridge:** A bridge between Delta Chat and `XMPP <https://xmpp.org/>`_ network.
+https://github.com/SimpleBot-Inc/simplebot_plugins
+https://github.com/janekc/deltabot_plugins/
 
 
-Games
-~~~~~
+Installing script plugins
+-------------------------
 
-- **Chain Reaction:** Chain Reaction board game to play with friends.
-- **Checkers:** American Checkers game to play with friends.
-- **Chess:** Chess game to play with friends.
-- **Color Lines:** Single player board game.
-- **Connect Four:** Connect Four game to play with friends.
-- **Exquisite Corpse:** Multiplayer game to play with a group of friends.
-- **Minesweeper:** Single player board game.
-- **Reversi:** Reversi/Othello game to play with friends.
-- **Sudoku:** Sudoku single player board game.
+If you know how to code in Python, you can quickly create plugins and install them to tweak your bot::
+
+    $ simplebot add-module ~/my_plugins/server_stats.py
+
+Check the `examples` folder to see some examples about how to create plugins this way.
 
 
-Misc
-~~~~
+Note for users
+--------------
 
-- **Avatar:** Generates `cats <https://www.peppercarrot.com/extras/html/2016_cat-generator>`_ and `birds <https://www.peppercarrot.com/extras/html/2019_bird-generator>`_ avatars.
-- **DeltaFriends:** Provides a directory for users to share their address and biography.
-- **Echo:** Simple plugin to echo back text.
-- **Groups:** Extends the capabilities of Delta Chat groups, adding "mega groups", "channels", and allowing to have public groups, invite friends to join a group, set group topic, etc.
-- **Feeds:** Subscribe to RSS and Atom links.
-- **Memes ES:** Get Spanish memes.
-- **Memes EN:** Get English memes.
-- **Polls:** Create polls in Delta Chat.
-- **Translator:** Allows to translate text. Example: /tr en es hello world.
-- **WebGrabber:** Browse the web using Delta Chat.
-- **Wikiquote:** Get quotes from Wikiquote.
-- **XKCD:** See https://xkcd.com/ comics in Delta Chat.
-
-
-Cuba
-~~~~
-
-- **Cartelera TV:** Muestra la cartelera de la TV cubana.
+SimpleBot uses `Autocrypt <https://autocrypt.org/>`_ end-to-end encryption
+but note that the operator of the bot service can look into
+messages that are sent to it.
