@@ -68,7 +68,7 @@ def cmd_show(command: IncomingCommand, replies: Replies) -> None:
         textlist = ""
         for user, timestamp in db.deltabot_list_users():
             usercount = usercount + 1
-            textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-6])
+            textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-13])
         textlist = textlist + "\n\nUsers: {}".format(usercount)
     if subcommand == "active":
         textlist = "Showing users who have been seen since {}\n\n".format(startdate)
@@ -116,12 +116,12 @@ def comparedatetime(sign, startdate):
         for user, timestamp in db.deltabot_list_users():
             if startdate < datetime.fromisoformat(timestamp):
                 usercount = usercount + 1
-                textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-6])
+                textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-13])
         textlist = textlist + "\n\n Users: {}".format(usercount)
     else:
         for user, timestamp in db.deltabot_list_users():
             if startdate > datetime.fromisoformat(timestamp):
                 usercount = usercount + 1
-                textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-6])
+                textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-13])
         textlist = textlist + "\n\n Users: {}".format(usercount)
     return textlist
