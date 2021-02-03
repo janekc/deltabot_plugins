@@ -35,7 +35,7 @@ def cmd_info(command: IncomingCommand, replies: Replies) -> None:
     """Shows info
     """
     replies.add(text='💻 Userbot active on: {} '.format(socket.gethostname()))
-    replies.add(text='Available commands:\n/info - show this info \n/refresh - scan logs \n/show <all|active|inactive> <hours default=24>\nshow active or inactive users in the last n days')
+    replies.add(text='Available commands:\n/info - show this info \n/refresh - scan logs \n/show <all|active|inactive> <hours default=24>\nshow active or inactive users in the last n hours')
 
 
 def cmd_refresh(command: IncomingCommand, replies: Replies) -> None:
@@ -48,7 +48,9 @@ def cmd_refresh(command: IncomingCommand, replies: Replies) -> None:
 
 def cmd_show(command: IncomingCommand, replies: Replies) -> None:
     """Shows last login dates for every user seen
+    Show active or inactive users in the last n hours
     """
+    usercount = 0
     textlist = "❌ Wrong syntax!\n/show <all|active|inactive> <hours default=24>"
     text = command.payload
     args = command.payload.split(maxsplit=1)
@@ -65,7 +67,9 @@ def cmd_show(command: IncomingCommand, replies: Replies) -> None:
     if subcommand == "all":
         textlist = ""
         for user, timestamp in db.deltabot_list_users():
+            usercount = usercount + 1
             textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-6])
+        textlist = textlist + "\n\nUsers: {}".format(usercount)
     if subcommand == "active":
         textlist = "Showing users who have been seen since {}\n\n".format(startdate)
         textlist = textlist + comparedatetime(1, startdate)
@@ -107,12 +111,17 @@ def writetodatabase(dict_obj):
 
 def comparedatetime(sign, startdate):
     textlist = ""
+    usercount = 0
     if sign == 1:
         for user, timestamp in db.deltabot_list_users():
             if startdate < datetime.fromisoformat(timestamp):
+                usercount = usercount + 1
                 textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-6])
+        textlist = textlist + "\n\n Users: {}".format(usercount)
     else:
         for user, timestamp in db.deltabot_list_users():
             if startdate > datetime.fromisoformat(timestamp):
+                usercount = usercount + 1
                 textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-6])
+        textlist = textlist + "\n\n Users: {}".format(usercount)
     return textlist
