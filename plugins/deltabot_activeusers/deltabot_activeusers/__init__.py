@@ -4,6 +4,7 @@ from deltabot import DeltaBot
 from deltabot.bot import Replies
 from deltabot.commands import IncomingCommand
 from .db import DBManager
+from deltachat import Chat, Contact, Message
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -32,10 +33,20 @@ def deltabot_init(bot: DeltaBot) -> None:
 
 
 @deltabot_hookimpl
-def deltabot_init() -> None:
-    if not g in db.get_groups():
-        print("hello")
-        #genqr
+def deltabot_start(bot: DeltaBot, chat = Chat) -> None:
+    groups = []
+    if db.get_groups():
+        print("found group. removing")
+        for g in db.get_groups():
+            db.remove_group(g['id'])
+
+    else:
+        print("no group found. creating a group")
+        chat = dbot.create_group("Admingroup", contacts=[])
+        db.upsert_group(chat.id, chat.get_name())
+        print("created group named: " + chat.get_name())
+        print(chat.get_join_qr())
+
 
 
 def cmd_info(command: IncomingCommand, replies: Replies) -> None:
