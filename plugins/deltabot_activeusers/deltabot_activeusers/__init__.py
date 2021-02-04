@@ -34,8 +34,8 @@ def deltabot_init(bot: DeltaBot) -> None:
 @deltabot_hookimpl
 def deltabot_init() -> None:
     if not g in db.get_groups():
-    print("hello")
-    #genqr
+        print("hello")
+        #genqr
 
 
 def cmd_info(command: IncomingCommand, replies: Replies) -> None:
