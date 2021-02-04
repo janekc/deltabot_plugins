@@ -6,6 +6,12 @@ An extensible Delta Chat bot.
 Quick Start: Running a bot+plugins in 7 steps
 ---------------------------------------------
 
+0. Add Bot User
+     
+     $ sudo adduser <yourbotuser>
+     $ tmux
+     $ sudo su <yourbotuser>
+     
 1. Declare bot email address and password::
 
      $ ADDR='bot@example.com'
@@ -13,14 +19,16 @@ Quick Start: Running a bot+plugins in 7 steps
 
 2. Create and activate virtual environment (Optional but recommended)::
 
-     $ python3 -m venv ~/deltabot/venvs`echo $ADDR|tr "@" "_"`
-     $ source ~/deltabot/venvs/`echo $ADDR|tr "@" "_"`/bin/activate
+     $ python3 -m venv ~/venvs/`echo $ADDR|tr "@" "_"`
+     $ source ~/venvs/`echo $ADDR|tr "@" "_"`/bin/activate
      $ pip3 install -U pip wheel
+     $ cd ~
+     $ git clone https://github.com/simplebot-inc/simplebot
 
 3. Install deltachat's python bindings as package or by compiling deltachat-core-rust::
 
-     $ pip3 install -U -i https://m.devpi.net/dc/master deltachat
-     $ # or
+     $ pip3 install -U -i https://m.devpi.net/dc/master deltachat==<version specified in ~/simplebot/setup.py>
+     $ # or (Python 3.9.1)
      $ curl https://sh.rustup.rs -sSf | sh
      $ git clone https://github.com/deltachat/deltachat-core-rust
      $ cd deltachat-core-rust/python
@@ -28,8 +36,6 @@ Quick Start: Running a bot+plugins in 7 steps
 
 4. Install simplebot::
 
-     $ cd ~
-     $ git clone https://github.com/simplebot-inc/simplebot
      $ pip3 install ./simplebot
 
 5. Install some plugins::
@@ -40,11 +46,12 @@ Quick Start: Running a bot+plugins in 7 steps
 
 6. Configure bot::
 
-     $ simplebot --basedir ~/deltabot/botdata/`echo $ADDR|tr "@" "_"` init $ADDR "$PASSWORD"
+     $ simplebot --basedir ~/botdata/`echo $ADDR|tr "@" "_"` init $ADDR "$PASSWORD"
 
 7. Start the bot::
 
-     $ simplebot --basedir ~/deltabot/botdata/`echo $ADDR|tr "@" "_"` serve
+     $ # sudo chown root:deltabot /var/log/mail.log
+     $ simplebot --basedir ~/botdata/`echo $ADDR|tr "@" "_"` serve
 
 
 Plugins
