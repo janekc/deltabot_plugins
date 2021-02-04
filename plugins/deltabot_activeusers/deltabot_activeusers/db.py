@@ -6,33 +6,53 @@ class DBManager:
     def __init__(self, db_path):
         self.db = sqlite3.connect(db_path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
-        self._execute('''CREATE TABLE IF NOT EXISTS users
+        self._execute('''CREATE TABLE IF NOT EXISTS mailusers
                         (username TEXT PRIMARY KEY,
                          date TEXT)''')
+        self.db.execute(
+                '''CREATE TABLE IF NOT EXISTS groups
+                (id INTEGER PRIMARY KEY,
+                topic TEXT)''')
 
     def _execute(self, statement, args=()):
         with self.db:
             return self.db.execute(statement, args)
 
-    def store(self, key, value):
-        old_val = self.geta(key)
+    def store_mailusers(self, key, value):
+        old_val = self.get_mailuser(key)
         if value is not None:
-            self._execute('REPLACE INTO users VALUES (?,?)', (key, value))
+            self._execute('REPLACE INTO mailusers VALUES (?,?)', (key, value))
         else:
-            self._execute('DELETE FROM users WHERE username=?', (key, ))
+            self._execute('DELETE FROM mailusers WHERE username=?', (key, ))
         return old_val
 
-    def geta(self, key):
+    def get_mailuser(self, key):
         row = self._execute(
-            'SELECT * FROM users WHERE username=?',
+            'SELECT * FROM mailusers WHERE username=?',
             (key,),
         ).fetchone()
         return row['date'] if row else None
 
-    def deltabot_list_users(self):
-        rows = self._execute('SELECT * FROM users').fetchall()
+    def list_mailusers(self):
+        rows = self._execute('SELECT * FROM mailusers').fetchall()
         return [(row['username'], row["date"]) for row in rows]
 
     def deltabot_shutdown(self, bot):
         self.db.close()
-    
+
+    def upsert_group(self, gid: int, topic: Optional[str]) -> None:
+        with self.db:
+            self.db.execute(
+                'REPLACE INTO groups (id, topic) VALUES (?,?)',
+                (gid, topic))
+
+    def remove_group(self, gid: int) -> None:
+        with self.db:
+            self.db.execute('DELETE FROM groups WHERE id=?', (gid,))
+
+    def get_group(self, gid: int) -> Optional[sqlite3.Row]:
+        return self.db.execute(
+            'SELECT * FROM groups WHERE id=?', (gid,)).fetchone()
+
+    def get_groups(self) -> List[sqlite3.Row]:
+        return self.db.execute('SELECT * FROM groups').fetchall()

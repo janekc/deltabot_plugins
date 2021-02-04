@@ -31,6 +31,13 @@ def deltabot_init(bot: DeltaBot) -> None:
     bot.commands.register(name="/show", func=cmd_show)
 
 
+@deltabot_hookimpl
+def deltabot_init() -> None:
+    if not g in db.get_groups():
+    print("hello")
+    #genqr
+
+
 def cmd_info(command: IncomingCommand, replies: Replies) -> None:
     """Shows info
     """
@@ -106,20 +113,20 @@ def parse(file):
 def writetodatabase(dict_obj):
     for user, timestamp in dict_obj.items():
         timestamp = datetime.fromisoformat(timestamp)
-        db.store(user, timestamp)
+        db.store_mailusers(user, timestamp)
 
 
 def comparedatetime(sign, startdate):
     textlist = ""
     usercount = 0
     if sign == 1:
-        for user, timestamp in db.deltabot_list_users():
+        for user, timestamp in db.list_mailusers():
             if startdate < datetime.fromisoformat(timestamp):
                 usercount = usercount + 1
                 textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-13])
         textlist = textlist + "\n\n Users: {}".format(usercount)
     else:
-        for user, timestamp in db.deltabot_list_users():
+        for user, timestamp in db.list_mailusers():
             if startdate > datetime.fromisoformat(timestamp):
                 usercount = usercount + 1
                 textlist = textlist + "{0:25} {1} \n".format(user, timestamp[:-13])
