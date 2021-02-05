@@ -72,7 +72,7 @@ def cmd_refresh(command: IncomingCommand, replies: Replies) -> None:
         replies.add(text='✅ scanned for new logins: {}'.format(str(datetime.now())))
 
 
-def cmd_show(command: IncomingCommand, message: Message, replies: Replies) -> None:
+def cmd_show(command: IncomingCommand, replies: Replies) -> None:
     """Shows last login dates for every user seen
     Show active or inactive users in the last n hours
 
