@@ -84,7 +84,8 @@ def cmd_show(command: IncomingCommand, replies: Replies) -> None:
         if len(args) == 1:
             subcommand = args[0]
             parameter = args[1] if len(args) == 2 else ''
-            now = datetime.now()
+            local_tz = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+            now = datetime.now(timezone(local_tz))
             startdate = now - timedelta(hours=24)
             outfile = ""
             if parameter:
