@@ -192,3 +192,4 @@ def test_mock_echo_help(mocker):
     assert "/show" in reply
     assert "/help" in reply
     assert "plugins: " in reply
+    
