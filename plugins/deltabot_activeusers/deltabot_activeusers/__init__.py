@@ -68,8 +68,11 @@ def cmd_refresh(command: IncomingCommand, replies: Replies) -> None:
     """Reads logfile and creates a summary
     """
     if check_priv(command.message, dbot):
-        writetodatabase(parse("/var/log/mail.log"))
+        lastseen = parse("/var/log/mail.log")
+        writetodatabase(lastseen)
         replies.add(text='✅ scanned for new logins: {}'.format(str(datetime.now())))
+    else:
+        replies.add("You are not authorzied!")
 
 
 def cmd_show(command: IncomingCommand, replies: Replies) -> None:
@@ -84,7 +87,7 @@ def cmd_show(command: IncomingCommand, replies: Replies) -> None:
         if len(args) == 1:
             subcommand = args[0]
             parameter = args[1] if len(args) == 2 else ''
-            now = datetime.now()
+            now = datetime.now().astimezone()
             startdate = now - timedelta(hours=24)
             outfile = ""
             if parameter:
@@ -105,6 +108,8 @@ def cmd_show(command: IncomingCommand, replies: Replies) -> None:
                 textlist = "Sending a List of users who have NOT been seen since {}\n Users counted: {}".format(startdate,  usercount)
             replies.add(filename=outfile)
         replies.add(text=textlist)
+    else:
+        replies.add("You are not authorzied!")
         
 
 # ======== Utilities ===============
@@ -139,7 +144,7 @@ def check_priv(message: Message, bot: DeltaBot) -> None:
     if message.chat.is_group():
         for g in groups:
             if g['id'] == message.chat.id:
-                dbot.logger.info("recieved message in registered group")
+                dbot.logger.info("recieved message from a registered group")
                 if message.chat.is_protected():
                     return True
     dbot.logger.error("recieved message from not registered group or 1on1.")
@@ -170,3 +175,20 @@ def writetofile(sign, startdate, now):
     return usercount, filename
 
 
+def test_mock_refresh(self, mocker):
+    reply_msg = mocker.run_command("/refresh")
+    assert reply.text.startswith("✅ scanned for new logins")
+
+
+def test_mock_info(self, mocker):
+    reply_msg = mocker.run_command("/info")
+    assert reply.text.startswith("?? Userbot active on:")
+
+
+def test_mock_echo_help(mocker):
+    reply = mocker.run_command("/help").text.lower()
+    assert "/info" in reply
+    assert "/refresh" in reply
+    assert "/show" in reply
+    assert "/help" in reply
+    assert "plugins: " in reply
