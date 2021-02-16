@@ -5,14 +5,13 @@ from deltabot.bot import Replies
 from deltabot.commands import IncomingCommand
 from .db import DBManager
 from deltachat import Chat, Contact, Message
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
+from datetime import datetime, timezone, timedelta
+import matplotlib.pyplot as plt
+from matplotlib.dates import drange
 import socket
 import re
 import os
 import segno
-
 
 
 version = '1.0.0'
@@ -28,6 +27,10 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot = bot
     db = get_db(bot)
 
+    #db.store_usercount("2021/02/02", 286)
+    #db.store_usercount("2021/02/05", 568)
+    #db.store_usercount("2021/02/06", 651)
+    #db.store_usercount("2021/02/09", 1803)
     bot.commands.register(name="/info", func=cmd_info)
     bot.commands.register(name="/refresh", func=cmd_refresh)
     bot.commands.register(name="/show", func=cmd_show)
@@ -39,14 +42,14 @@ def deltabot_start(bot: DeltaBot, chat = Chat) -> None:
     groups = db.get_groups()
     if groups:
         for g in groups:
-            if g['topic'] == 'Admin group' and g['id'] == int(dbot.get('admgrpid')):
+            if g['topic'] == 'Admin group on {}'.format(socket.gethostname()) and g['id'] == int(dbot.get('admgrpid')):
                 dbot.logger.info("found Admin group")
             else:
                 dbot.logger.warn("no admin group found. removing groups. gid:" + str(g['id']))
                 db.remove_group(g['id'])         
     else:
         dbot.logger.warn("no groups found. Creating an admin group")
-        chat = dbot.account.create_group_chat("Admin group", contacts=[], verified=True)
+        chat = dbot.account.create_group_chat("Admin group on {}".format(socket.gethostname()), contacts=[], verified=True)
         db.upsert_group(chat.id, chat.get_name())
         dbot.set("admgrpid",chat.id)
         qr = segno.make(chat.get_join_qr())
@@ -108,6 +111,7 @@ def cmd_show(command: IncomingCommand, replies: Replies) -> None:
                 textlist = "Sending a List of users who have NOT been seen since {}\n Users counted: {}".format(startdate,  usercount)
             replies.add(filename=outfile)
         replies.add(text=textlist)
+        replies.add(filename=create_graph())
     else:
         replies.add("You are not authorzied!")
         
@@ -147,9 +151,26 @@ def check_priv(message: Message, bot: DeltaBot) -> None:
                 dbot.logger.info("recieved message from a registered group")
                 if message.chat.is_protected():
                     return True
-    dbot.logger.error("recieved message from not registered group or 1on1.")
+    dbot.logger.error("recieved message from not registered group, not protected group or 1on1.")
     dbot.logger.error("Sender: {} Chat: {}".format(message.get_sender_contact().addr, message.chat.get_name()))
     return False
+
+
+def create_graph():
+    path = os.path.join(os.path.dirname(dbot.account.db_path), __name__)
+    filename = os.path.join(path, 'plot.png')
+    dates = []
+    users = []
+    dates, users = db.list_usercount()
+
+    fig, ax = plt.subplots()
+    plt.plot(dates, users)
+    ax.xaxis.set_major_formatter(DateFormatter('%d/%m/%y'))
+    plt.grid(linestyle='-')
+    plt.xlabel("Date")
+    plt.ylabel("Users")
+    plt.savefig(filename)
+    return filename
 
 
 def writetofile(sign, startdate, now):
@@ -172,6 +193,7 @@ def writetofile(sign, startdate, now):
             if sign == 0 and startdate > datetime.fromisoformat(timestamp):
                 usercount = usercount + 1
                 file.writelines("{0:25} {1} \n".format(user, timestamp[:-13]))
+        db.store_usercount(now.strftime("%Y-%m-%d"), usercount)
     return usercount, filename
 
 

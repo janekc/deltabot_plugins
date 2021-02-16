@@ -1,6 +1,7 @@
 import os
 import sqlite3
 from typing import Optional, List
+from datetime import date
 
 
 class DBManager:
@@ -14,6 +15,10 @@ class DBManager:
                 '''CREATE TABLE IF NOT EXISTS groups
                 (id INTEGER PRIMARY KEY,
                 topic TEXT)''')
+        self.db.execute(
+                '''CREATE TABLE IF NOT EXISTS usercountr
+                (date TEXT PRIMARY KEY,
+                users INTEGER)''')
 
     def _execute(self, statement, args=()):
         with self.db:
@@ -26,6 +31,18 @@ class DBManager:
         else:
             self._execute('DELETE FROM mailusers WHERE username=?', (key, ))
         return old_val
+
+    def list_usercount(self):
+        users = []
+        dates = []
+        rows = self._execute('SELECT * FROM usercountr').fetchall()
+        for row in rows:
+            users.append(row['users'])
+            dates.append(date.fromisoformat(row['date']))
+        return dates, users
+
+    def store_usercount(self, key, value):
+        self._execute('REPLACE INTO usercountr VALUES (?,?)', (key, value))
 
     def get_mailuser(self, key):
         row = self._execute(
