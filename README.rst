@@ -1,7 +1,7 @@
 Deltabot Plugins
 ================
 
-An extensible Delta Chat bot.
+An extensible Mailadm bot.
 
 Quick Start: Running a bot+plugins in 7 steps
 ---------------------------------------------
@@ -19,8 +19,8 @@ Quick Start: Running a bot+plugins in 7 steps
 
 2. Create and activate virtual environment (Optional but recommended)::
 
-     $ python3 -m venv ~/venvs/`echo $ADDR|tr "@" "_"`
-     $ source ~/venvs/`echo $ADDR|tr "@" "_"`/bin/activate
+     $ python3 -m venv ~/venvs/adminbot
+     $ source ~/venvs/adminbot/bin/activate
      $ pip3 install -U pip wheel
      $ cd ~
      $ git clone https://github.com/simplebot-inc/simplebot
@@ -36,22 +36,23 @@ Quick Start: Running a bot+plugins in 7 steps
 
 4. Install simplebot::
 
-     $ pip3 install ./simplebot
+     $ pip3 install https://github.com/simplebot-org/simplebot/archive/master.zip
 
 5. Install some plugins::
 
      $ cd ~
      $ git clone https://github.com/janekc/deltabot_plugins/
      $ python3 deltabot_plugins/scripts/install_plugin.py
+     $ pip3 install matplotlib segno
 
 6. Configure bot::
 
-     $ simplebot --basedir ~/botdata/`echo $ADDR|tr "@" "_"` init $ADDR "$PASSWORD"
+     $ simplebot init "$ADDR" "$PASSWORD"
 
 7. Start the bot::
 
-     $ # sudo chown root:deltabot /var/log/mail.log
-     $ simplebot --basedir ~/botdata/`echo $ADDR|tr "@" "_"` serve
+     $ sudo chown root:deltabot /var/log/mail.log
+     $ simplebot -a $ADDR serve
 
 
 Plugins

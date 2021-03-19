@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from deltabot.hookspec import deltabot_hookimpl
-from deltabot import DeltaBot
-from deltabot.bot import Replies
-from deltabot.commands import IncomingCommand
+from simplebot.hookspec import deltabot_hookimpl
+from simplebot import DeltaBot
+from simplebot.bot import Replies
+from simplebot.commands import IncomingCommand
 from .db import DBManager
 from deltachat import Chat, Contact, Message
 from datetime import datetime, timezone, timedelta
@@ -27,10 +27,6 @@ def deltabot_init(bot: DeltaBot) -> None:
     dbot = bot
     db = get_db(bot)
 
-    #db.store_usercount("2021/02/02", 286)
-    #db.store_usercount("2021/02/05", 568)
-    #db.store_usercount("2021/02/06", 651)
-    #db.store_usercount("2021/02/09", 1803)
     bot.commands.register(name="/info", func=cmd_info)
     bot.commands.register(name="/refresh", func=cmd_refresh)
     bot.commands.register(name="/show", func=cmd_show)
@@ -163,9 +159,8 @@ def create_graph():
     users = []
     dates, users = db.list_usercount()
 
-    fig, ax = plt.subplots()
     plt.plot(dates, users)
-    ax.xaxis.set_major_formatter(DateFormatter('%d/%m/%y'))
+    #plt.xlabel.set_major_formatter(DateFormatter('%d/%m'))
     plt.grid(linestyle='-')
     plt.xlabel("Date")
     plt.ylabel("Users")
@@ -197,12 +192,14 @@ def writetofile(sign, startdate, now):
     return usercount, filename
 
 
-def test_mock_refresh(self, mocker):
+# ======== Utilities ===============
+
+def test_mock_refresh(mocker):
     reply_msg = mocker.run_command("/refresh")
     assert reply.text.startswith("✅ scanned for new logins")
 
 
-def test_mock_info(self, mocker):
+def test_mock_info(mocker):
     reply_msg = mocker.run_command("/info")
     assert reply.text.startswith("?? Userbot active on:")
 
