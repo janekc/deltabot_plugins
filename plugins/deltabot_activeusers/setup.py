@@ -43,7 +43,6 @@ if __name__ == "__main__":
             'simplebot',
             'matplotlib',
             'segno',
-            'socket',
         ],
         entry_points={
             'simplebot.plugins': '{0} = {0}'.format(module_name),
